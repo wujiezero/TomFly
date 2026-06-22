@@ -22,6 +22,14 @@ detect_arch() {
     esac
 }
 
+detect_libc() {
+    if ls /lib/ld-musl-* >/dev/null 2>&1; then
+        echo "musl"
+    else
+        echo "glibc"
+    fi
+}
+
 get_latest_release() {
     local repo="$1"
     local tag
@@ -158,7 +166,9 @@ update_mihomo() {
 update_singbox() {
     local arch
     arch=$(detect_arch)
-    progress "Checking latest sing-box release... (arch: $arch)"
+    local libc
+    libc=$(detect_libc)
+    progress "Checking latest sing-box release... (arch: $arch, libc: $libc)"
 
     local tag
     tag=$(get_latest_release "$SINGBOX_REPO")
@@ -169,11 +179,13 @@ update_singbox() {
     progress "Latest sing-box: $tag"
 
     local url
-    url=$(get_download_url "$SINGBOX_REPO" "$tag" "sing-box-.*-${arch}\.tar\.gz" | head -1)
+    url=$(get_download_url "$SINGBOX_REPO" "$tag" "${arch}-${libc}\.tar\.gz" | head -1)
+    [ -z "$url" ] && url=$(get_download_url "$SINGBOX_REPO" "$tag" "sing-box-.*-${arch}\.tar\.gz" | head -1)
     if [ -z "$url" ]; then
         log_error "No sing-box binary found for arch: $arch (tag: $tag)"
         return 1
     fi
+    progress "Selected: $(basename "$url")"
 
     local tmpfile="/tmp/kanno-singbox-${tag}.tar.gz"
     progress "Downloading: $(basename "$url")"
