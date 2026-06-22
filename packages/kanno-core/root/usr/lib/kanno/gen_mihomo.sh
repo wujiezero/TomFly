@@ -158,6 +158,7 @@ bind-address: '*'
 mode: ${mode}
 log-level: ${loglevel}
 ipv6: ${ipv6}
+geodata-mode: true
 unified-delay: true
 tcp-concurrent: true
 find-process-mode: 'off'
