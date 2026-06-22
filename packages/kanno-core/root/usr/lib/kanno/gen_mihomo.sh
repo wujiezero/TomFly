@@ -135,16 +135,6 @@ emit_proxy() {
     esac
 }
 
-# Collect all enabled proxy names
-get_proxy_names() {
-    uci show kanno 2>/dev/null | grep "^kanno\.proxy_.*\.type=" | while read -r line; do
-        local sec=$(echo "$line" | cut -d'.' -f2)
-        local enabled=$(_u "${sec}.enabled")
-        [ "${enabled:-1}" = "0" ] && continue
-        _u "${sec}.name"
-    done
-}
-
 generate_mihomo_config() {
     local mode=$(_u "global.mode"); mode="${mode:-rule}"
     local loglevel=$(_u "global.log_level"); loglevel="${loglevel:-info}"
@@ -244,34 +234,31 @@ YAML
         emit_proxy "$sec"
     done
 
+    # Collect all enabled proxy names for the auto-group
+    local proxy_names=""
+    uci show kanno 2>/dev/null | grep "^kanno\.proxy_.*\.type=" | while read -r line; do
+        local sec=$(echo "$line" | cut -d'.' -f2)
+        [ "$(_u "${sec}.enabled")" = "0" ] && continue
+        _u "${sec}.name"
+    done > /tmp/kanno_proxy_names.tmp
+    proxy_names=$(cat /tmp/kanno_proxy_names.tmp 2>/dev/null)
+    rm -f /tmp/kanno_proxy_names.tmp
+
     cat <<YAML
 
 proxy-groups:
+  - name: "PROXY"
+    type: url-test
+    proxies:
 YAML
-
-    # Emit proxy groups
-    uci show kanno 2>/dev/null | grep "^kanno\.group_.*\.name=" | while read -r line; do
-        local sec=$(echo "$line" | cut -d'.' -f2)
-        local gname=$(_u "${sec}.name")
-        local gtype=$(_u "${sec}.type"); gtype="${gtype:-url-test}"
-        local url=$(_u "${sec}.url"); url="${url:-http://www.gstatic.com/generate_204}"
-        local interval=$(_u "${sec}.interval"); interval="${interval:-300}"
-        local tolerance=$(_u "${sec}.tolerance"); tolerance="${tolerance:-50}"
-
-        printf '  - name: "%s"\n' "$gname"
-        printf '    type: %s\n' "$gtype"
-        printf '    proxies:\n'
-        uci -q get "kanno.${sec}.proxies" 2>/dev/null | tr ' ' '\n' | while read -r p; do
-            [ -n "$p" ] && printf '      - "%s"\n' "$p"
-        done
-        case "$gtype" in
-        url-test|fallback|load-balance)
-            printf '    url: "%s"\n' "$url"
-            printf '    interval: %s\n' "$interval"
-            [ "$gtype" = "url-test" ] && printf '    tolerance: %s\n' "$tolerance"
-            ;;
-        esac
+    echo "$proxy_names" | while read -r pn; do
+        [ -n "$pn" ] && printf '      - "%s"\n' "$pn"
     done
+    cat <<YAML
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+    tolerance: 50
+YAML
 
     cat <<YAML
 
@@ -300,19 +287,13 @@ YAML
 
     local geosite_cn=$(_u "rules.geosite_cn"); geosite_cn="${geosite_cn:-DIRECT}"
     local geoip_cn=$(_u "rules.geoip_cn"); geoip_cn="${geoip_cn:-DIRECT}"
-    local default_policy=$(_u "rules.default_policy"); default_policy="${default_policy:-PROXY}"
-
-    # First proxy group name as default
-    local first_group
-    first_group=$(uci show kanno 2>/dev/null | grep "^kanno\.group_.*\.name=" | head -1 | cut -d'=' -f2)
-    [ -n "$first_group" ] && default_policy="$first_group"
 
     cat <<YAML
   - GEOSITE,CN,${geosite_cn}
   - GEOSITE,private,DIRECT
   - GEOIP,private,DIRECT,no-resolve
   - GEOIP,CN,${geoip_cn},no-resolve
-  - MATCH,${default_policy}
+  - MATCH,PROXY
 YAML
 }
 
