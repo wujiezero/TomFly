@@ -117,14 +117,24 @@ parse_ss() {
     if echo "$body" | grep -q '@'; then
         userinfo=$(echo "$body" | cut -d'@' -f1)
         hostport=$(echo "$body" | cut -d'@' -f2-)
-        local dec=$(echo "$userinfo" | base64 -d 2>/dev/null)
-        if echo "$dec" | grep -q ':'; then
-            method=$(echo "$dec" | cut -d':' -f1)
-            password=$(echo "$dec" | cut -d':' -f2-)
-        else
-            method=$(echo "$userinfo" | cut -d':' -f1)
-            password=$(echo "$userinfo" | cut -d':' -f2-)
-        fi
+        case "$userinfo" in
+        *%*)
+            # percent-encoded "method:password" (some SIP002 providers)
+            local ui=$(urldecode "$userinfo")
+            method=${ui%%:*}; password=${ui#*:}
+            ;;
+        *:*)
+            # plaintext "method:password"
+            method=${userinfo%%:*}; password=${userinfo#*:}
+            ;;
+        *)
+            # base64("method:password"), pad to a multiple of 4
+            local b64="$userinfo"
+            local pad=$(( 4 - ${#b64} % 4 )); [ "$pad" -ne 4 ] && b64="${b64}$(printf '=%.0s' $(seq 1 $pad))"
+            local dec=$(echo "$b64" | base64 -d 2>/dev/null)
+            method=${dec%%:*}; password=${dec#*:}
+            ;;
+        esac
     else
         local dec=$(echo "$body" | base64 -d 2>/dev/null)
         method=$(echo "$dec" | cut -d':' -f1)
@@ -214,6 +224,30 @@ parse_naive() {
     echo "password=$password"
 }
 
+parse_anytls() {
+    local uri="$1"
+    local frag body password hostport params host port
+
+    frag=$(urldecode "$(echo "$uri" | sed 's/.*#//')")
+    body=$(echo "$uri" | sed 's/#.*//' | sed 's|^anytls://||')
+    password=$(urldecode "$(echo "$body" | cut -d'@' -f1)")
+    hostport=$(echo "$body" | cut -d'@' -f2- | cut -d'?' -f1 | sed 's|/$||')
+    params=$(echo "$body" | grep -o '?.*' | cut -c2-)
+    _hostport "$hostport"
+    host=$_HP_HOST; port=$_HP_PORT
+
+    echo "type=anytls"
+    echo "name=$frag"
+    echo "server=$host"
+    echo "port=$port"
+    echo "password=$password"
+    echo "security=$(_qget "$params" security)"
+    echo "sni=$(_qget "$params" sni)"
+    echo "fp=$(_qget "$params" fp)"
+    echo "pbk=$(_qget "$params" pbk)"
+    echo "sid=$(_qget "$params" sid)"
+}
+
 # Detect scheme and dispatch
 parse_uri() {
     local uri="$1"
@@ -226,6 +260,7 @@ parse_uri() {
         hysteria2://*)     parse_hy2 "$uri" ;;
         tuic://*)          parse_tuic "$uri" ;;
         naive+https://*)   parse_naive "$uri" ;;
+        anytls://*)        parse_anytls "$uri" ;;
         *) log_error "unsupported URI scheme: ${uri%%://*}"; return 1 ;;
     esac
 }

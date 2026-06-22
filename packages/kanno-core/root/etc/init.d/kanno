@@ -3,31 +3,20 @@
 
 START=99
 STOP=10
-USE_PROCD=1
 
 PROG=/usr/bin/kanno
 
-start_service() {
+start() {
     local enabled
     enabled=$(uci -q get kanno.global.enabled 2>/dev/null)
     [ "${enabled:-1}" = "0" ] && return 0
-
-    procd_open_instance
-    procd_set_param command /bin/sh -c "$PROG start"
-    procd_set_param stdout 1
-    procd_set_param stderr 1
-    procd_set_param respawn 3600 5 0
-    procd_close_instance
+    $PROG start
 }
 
-stop_service() {
+stop() {
     $PROG stop
 }
 
-reload_service() {
+reload() {
     $PROG reload
-}
-
-service_triggers() {
-    procd_add_reload_trigger "kanno"
 }
