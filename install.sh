@@ -92,49 +92,76 @@ install_pkg ca-bundle           "ca-certificates"      "ca-bundle"
 
 # ── Step 2: Create directory structure ────────────────────────────────────────
 step "Creating directories..."
-mkdir -p \
-    /usr/lib/kanno \
-    /etc/kanno/{geodata,rules,mihomo,singbox} \
-    /var/log \
-    /var/run/kanno \
-    /www/luci-static/kanno \
-    /usr/lib/lua/luci/rpc \
-    /usr/share/luci/menu.d \
-    /usr/share/rpcd/acl.d \
-    /etc/init.d
+# BusyBox ash does NOT support brace expansion — use one mkdir per path
+mkdir -p /usr/lib/kanno
+mkdir -p /etc/kanno/geodata
+mkdir -p /etc/kanno/rules
+mkdir -p /etc/kanno/mihomo
+mkdir -p /etc/kanno/singbox
+mkdir -p /var/log
+mkdir -p /var/run/kanno
+mkdir -p /www/luci-static/kanno
+mkdir -p /usr/lib/lua/luci/rpc
+mkdir -p /usr/share/luci/menu.d
+mkdir -p /usr/share/rpcd/acl.d
+mkdir -p /etc/init.d
 info "Directories ready"
 
 # ── Step 3: Download helper ────────────────────────────────────────────────────
+# Primary CDN: jsDelivr (clears cache on push)
+# Fallback CDN: raw.githubusercontent.com (may have up to 5min cache lag)
+REPO_FALLBACK="https://raw.githubusercontent.com/wujiezero/kanno-proxy/main"
+
 download() {
     local src="$1" dst="$2" mode="${3:-644}"
-    if curl -fsSL --max-time 60 -o "$dst" "${REPO}/${src}"; then
+    local tmpfile="${dst}.kanno_tmp"
+    # Try primary CDN
+    if curl -fsSL --max-time 60 -o "$tmpfile" "${REPO}/${src}" 2>/dev/null; then
+        mv "$tmpfile" "$dst"
         chmod "$mode" "$dst"
         return 0
-    else
-        warn "Download failed: $src → $dst"
-        return 1
     fi
+    # Retry with fallback CDN
+    warn "Primary CDN failed for $src, trying fallback..."
+    if curl -fsSL --max-time 60 -o "$tmpfile" "${REPO_FALLBACK}/${src}" 2>/dev/null; then
+        mv "$tmpfile" "$dst"
+        chmod "$mode" "$dst"
+        return 0
+    fi
+    rm -f "$tmpfile"
+    warn "Download failed: $src"
+    return 1
+}
+
+# download_critical: same as download but aborts install on failure
+download_critical() {
+    download "$@" || error "Critical file download failed: $1 — check network and retry"
 }
 
 # ── Step 4: Download core scripts ─────────────────────────────────────────────
 step "Downloading core scripts..."
 CORE="packages/kanno-core/root"
 
-download "$CORE/usr/lib/kanno/common.sh"     /usr/lib/kanno/common.sh     755 || error "Failed to get common.sh"
-download "$CORE/usr/lib/kanno/uri_parser.sh" /usr/lib/kanno/uri_parser.sh  755
-download "$CORE/usr/lib/kanno/gen_mihomo.sh" /usr/lib/kanno/gen_mihomo.sh  755
-download "$CORE/usr/lib/kanno/gen_singbox.sh" /usr/lib/kanno/gen_singbox.sh 755
-download "$CORE/usr/lib/kanno/nftables.sh"   /usr/lib/kanno/nftables.sh    755
-download "$CORE/usr/lib/kanno/dns.sh"        /usr/lib/kanno/dns.sh         755
-download "$CORE/usr/lib/kanno/updater.sh"    /usr/lib/kanno/updater.sh     755
-download "$CORE/usr/bin/kanno"               /usr/bin/kanno                755
-download "$CORE/etc/init.d/kanno"            /etc/init.d/kanno             755
+download_critical "$CORE/usr/lib/kanno/common.sh"      /usr/lib/kanno/common.sh     755
+download_critical "$CORE/usr/lib/kanno/uri_parser.sh"  /usr/lib/kanno/uri_parser.sh  755
+download_critical "$CORE/usr/lib/kanno/gen_mihomo.sh"  /usr/lib/kanno/gen_mihomo.sh  755
+download_critical "$CORE/usr/lib/kanno/gen_singbox.sh" /usr/lib/kanno/gen_singbox.sh 755
+download_critical "$CORE/usr/lib/kanno/nftables.sh"    /usr/lib/kanno/nftables.sh    755
+download_critical "$CORE/usr/lib/kanno/dns.sh"         /usr/lib/kanno/dns.sh         755
+download_critical "$CORE/usr/lib/kanno/updater.sh"     /usr/lib/kanno/updater.sh     755
+download_critical "$CORE/usr/bin/kanno"                /usr/bin/kanno                755
+download_critical "$CORE/etc/init.d/kanno"             /etc/init.d/kanno             755
+
+# Verify the main binary is actually executable
+[ -x /usr/bin/kanno ] || error "/usr/bin/kanno was downloaded but is not executable"
 
 # Rule files (skip if already customized)
 [ -f /etc/kanno/rules/force_proxy.txt ] || \
-    download "packages/kanno-geodata/root/etc/kanno/rules/force_proxy.txt"  /etc/kanno/rules/force_proxy.txt
+    download "packages/kanno-geodata/root/etc/kanno/rules/force_proxy.txt" \
+             /etc/kanno/rules/force_proxy.txt
 [ -f /etc/kanno/rules/force_direct.txt ] || \
-    download "packages/kanno-geodata/root/etc/kanno/rules/force_direct.txt" /etc/kanno/rules/force_direct.txt
+    download "packages/kanno-geodata/root/etc/kanno/rules/force_direct.txt" \
+             /etc/kanno/rules/force_direct.txt
 
 info "Core scripts installed"
 
