@@ -15,8 +15,10 @@ return view.extend({
             'style': 'margin: -2rem -2rem -2rem; padding: 0; overflow: hidden;'
         });
 
+        // Cache-bust the iframe document so a freshly-deployed index.html
+        // is always loaded; index.html in turn versions its own assets.
         var frame = E('iframe', {
-            'src': '/luci-static/kanno/',
+            'src': '/luci-static/kanno/?_=' + Date.now(),
             'id': 'kanno-spa',
             'style': [
                 'width: 100%',
