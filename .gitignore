@@ -7,3 +7,7 @@ dist/
 packages/*/ipkg-*/
 packages/*/build_dir/
 src/web/.vite/
+
+# Override global gitignore rules (e.g. bin/) for OpenWrt package files
+!packages/**/bin/
+!packages/**/bin/*

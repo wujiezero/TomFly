@@ -1,0 +1,187 @@
+#!/bin/sh
+# KannoProxy - main control command
+
+. /usr/lib/kanno/common.sh
+. /usr/lib/kanno/uri_parser.sh
+. /usr/lib/kanno/gen_mihomo.sh
+. /usr/lib/kanno/gen_singbox.sh
+. /usr/lib/kanno/nftables.sh
+. /usr/lib/kanno/dns.sh
+. /usr/lib/kanno/updater.sh
+
+_kernel() { uci -q get kanno.global.kernel 2>/dev/null; echo "mihomo"; }
+
+start_kernel() {
+    local kernel=$(_kernel)
+    local pid_running
+
+    case "$kernel" in
+    singbox)
+        write_config() { . /usr/lib/kanno/gen_singbox.sh; write_config; }
+        . /usr/lib/kanno/gen_singbox.sh
+        write_config "$SINGBOX_CFG"
+        if [ ! -x "$SINGBOX_BIN" ]; then
+            log_error "sing-box not found, run: kanno update singbox"
+            return 1
+        fi
+        "$SINGBOX_BIN" run -c "$SINGBOX_CFG" -D "$GEODATA_DIR" &
+        echo $! > "$SINGBOX_PID"
+        log_info "sing-box started (pid $!)"
+        ;;
+    *)
+        . /usr/lib/kanno/gen_mihomo.sh
+        write_config "$MIHOMO_CFG"
+        if [ ! -x "$MIHOMO_BIN" ]; then
+            log_error "mihomo not found, run: kanno update mihomo"
+            return 1
+        fi
+        "$MIHOMO_BIN" -d "$(dirname "$MIHOMO_CFG")" -f "$MIHOMO_CFG" &
+        echo $! > "$MIHOMO_PID"
+        log_info "mihomo started (pid $!)"
+        ;;
+    esac
+}
+
+stop_kernel() {
+    for pid_file in "$MIHOMO_PID" "$SINGBOX_PID"; do
+        [ -f "$pid_file" ] || continue
+        local pid=$(cat "$pid_file")
+        kill "$pid" 2>/dev/null && log_info "stopped pid $pid"
+        rm -f "$pid_file"
+    done
+    # Fallback kill
+    killall -q mihomo sing-box 2>/dev/null
+}
+
+reload_kernel() {
+    local kernel=$(_kernel)
+    case "$kernel" in
+    mihomo)
+        . /usr/lib/kanno/gen_mihomo.sh
+        write_config "$MIHOMO_CFG"
+        local pid=$(cat "$MIHOMO_PID" 2>/dev/null)
+        [ -n "$pid" ] && kill -HUP "$pid" 2>/dev/null && log_info "mihomo reloaded"
+        ;;
+    *)
+        stop_kernel
+        start_kernel
+        ;;
+    esac
+}
+
+kanno_start() {
+    log_info "KannoProxy starting..."
+    start_kernel || return 1
+    sleep 1
+    setup_routing
+    load_nftables
+    load_custom_rules
+    setup_dns
+    log_info "KannoProxy started"
+}
+
+kanno_stop() {
+    log_info "KannoProxy stopping..."
+    teardown_dns
+    unload_nftables
+    teardown_routing
+    stop_kernel
+    log_info "KannoProxy stopped"
+}
+
+kanno_restart() {
+    kanno_stop
+    sleep 1
+    kanno_start
+}
+
+kanno_status() {
+    local kernel=$(_kernel)
+    local pid_file
+    [ "$kernel" = "singbox" ] && pid_file="$SINGBOX_PID" || pid_file="$MIHOMO_PID"
+
+    if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+        echo "running"
+    else
+        echo "stopped"
+    fi
+}
+
+# Add a proxy node from URI
+kanno_add() {
+    local uri="$1"
+    [ -z "$uri" ] && { echo "Usage: kanno add <uri>"; exit 1; }
+    local id
+    id=$(uri_to_uci "$uri") && echo "Added node: $id" || echo "Failed to parse URI"
+}
+
+# Remove a node by id
+kanno_del() {
+    local id="$1"
+    [ -z "$id" ] && { echo "Usage: kanno del <node_id>"; exit 1; }
+    uci -q delete "kanno.proxy_${id}" && uci commit kanno && \
+        echo "Deleted node: $id" || echo "Node not found: $id"
+}
+
+# List all nodes
+kanno_list() {
+    uci show kanno 2>/dev/null | grep "^kanno\.proxy_.*\.name=" | \
+        sed 's/kanno\.proxy_\(.*\)\.name=\(.*\)/\1  \2/'
+}
+
+# Test node latency
+kanno_test() {
+    local id="$1"
+    local sec="proxy_${id}"
+    local server=$(uci -q get "kanno.${sec}.server")
+    local port=$(uci -q get "kanno.${sec}.port")
+    [ -z "$server" ] && { echo "Node not found"; exit 1; }
+
+    local start=$(date +%s%N 2>/dev/null || date +%s)
+    if nc -z -w3 "$server" "$port" 2>/dev/null; then
+        local end=$(date +%s%N 2>/dev/null || date +%s)
+        echo "$((( end - start ) / 1000000))ms"
+    else
+        echo "timeout"
+    fi
+}
+
+case "${1:-help}" in
+    start)   kanno_start ;;
+    stop)    kanno_stop ;;
+    restart) kanno_restart ;;
+    reload)  reload_kernel ;;
+    status)  kanno_status ;;
+    add)     kanno_add "$2" ;;
+    del)     kanno_del "$2" ;;
+    list)    kanno_list ;;
+    test)    kanno_test "$2" ;;
+    update)
+        case "$2" in
+        mihomo)  update_mihomo ;;
+        singbox) update_singbox ;;
+        geodata) update_geodata ;;
+        all)     update_mihomo; update_singbox; update_geodata ;;
+        *)       echo "Usage: kanno update {mihomo|singbox|geodata|all}" ;;
+        esac
+        ;;
+    *)
+        cat <<-USAGE
+KannoProxy v0.1.0
+Commands:
+  start              Start the proxy service
+  stop               Stop the proxy service
+  restart            Restart the proxy service
+  reload             Reload config without restarting
+  status             Show running status
+  add <uri>          Add a proxy node from URI
+  del <id>           Remove a proxy node
+  list               List all proxy nodes
+  test <id>          Test node connectivity
+  update mihomo      Update mihomo kernel
+  update singbox     Update sing-box kernel
+  update geodata     Update GeoIP/GeoSite data
+  update all         Update everything
+USAGE
+        ;;
+esac
