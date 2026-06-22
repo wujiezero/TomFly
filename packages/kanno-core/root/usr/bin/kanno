@@ -250,14 +250,30 @@ kanno_list() {
         sed 's/kanno\.proxy_\(.*\)\.name=\(.*\)/\1  \2/'
 }
 
-# Test node latency via curl TCP connect timing (BusyBox nc lacks precision)
 kanno_test() {
     local id="$1"
     local sec="proxy_${id}"
+    local name=$(uci -q get "kanno.${sec}.name")
     local server=$(uci -q get "kanno.${sec}.server")
     local port=$(uci -q get "kanno.${sec}.port")
     [ -z "$server" ] && { echo "Node not found"; exit 1; }
 
+    # Prefer the running kernel's own latency test: the kernel dials the node
+    # itself, so it works in BOTH tproxy and TUN data-planes and measures real
+    # proxy latency. A raw connect from the router would be captured by the TUN
+    # (in TUN mode) and always time out.
+    if [ "$(_kernel)" = "mihomo" ] && [ -n "$name" ]; then
+        local enc resp
+        enc=$(echo "$name" | sed 's/ /%20/g')
+        resp=$(curl -s --max-time 8 "http://127.0.0.1:9090/proxies/${enc}/delay?url=http://www.gstatic.com/generate_204&timeout=5000" 2>/dev/null)
+        case "$resp" in
+        *'"delay"'*) echo "$resp" | sed 's/.*"delay"[^0-9]*\([0-9]*\).*/\1ms/'; return 0 ;;
+        esac
+        # kernel stopped, or node not in config (incompatible) → fall through
+    fi
+
+    # Fallback: raw TCP-connect timing (works when the kernel is stopped, and
+    # in tproxy mode where the node IP is bypassed).
     local t
     t=$(curl -o /dev/null -s -w '%{time_connect}' --connect-timeout 5 --max-time 6 "http://${server}:${port}" 2>/dev/null)
     echo "$t" | awk '{ms=int($1*1000)} ms>0{print ms"ms"; next} {print "timeout"}'
