@@ -19,10 +19,11 @@ function svg(paths) {
 }
 
 var ICON = {
-	up:   '<polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/>',
-	down: '<polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/>',
-	link: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
-	mem:  '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>'
+	up:    '<polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/>',
+	down:  '<polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/>',
+	link:  '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/>',
+	mem:   '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
+	total: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'
 };
 
 function notify(content, ms) {
@@ -114,6 +115,13 @@ return view.extend({
 					E('div', { 'class': 'kanno-stat-value' }, fmtBytes(t.mem || 0)),
 					E('div', { 'class': 'kanno-stat-label' }, _('Memory'))
 				])
+			]),
+			E('div', { 'class': 'kanno-card kanno-stat' }, [
+				E('div', { 'class': 'kanno-stat-icon kanno-ic-red' }, svg(ICON.total)),
+				E('div', {}, [
+					E('div', { 'class': 'kanno-stat-value' }, fmtBytes((t.up || 0) + (t.down || 0))),
+					E('div', { 'class': 'kanno-stat-label' }, _('Total Traffic'))
+				])
 			])
 		];
 	},
@@ -130,6 +138,11 @@ return view.extend({
 		var trafficGrid = E('div', { 'id': 'kanno-traffic', 'class': 'kanno-grid' },
 			this.trafficInner(traffic));
 
+		var accessSites = [
+			{ name: 'Baidu', url: 'https://www.baidu.com' },
+			{ name: 'Google', url: 'https://www.google.com/generate_204' },
+			{ name: 'YouTube', url: 'https://www.youtube.com' }
+		];
 		var accessCard = E('div', { 'class': 'kanno-card' }, [
 			E('div', { 'class': 'kanno-row', 'style': 'margin-bottom:10px' }, [
 				E('span', { 'class': 'kanno-card-title', 'style': 'margin:0' }, _('Access Check')),
@@ -138,10 +151,33 @@ return view.extend({
 					'style': 'padding:2px 14px;font-size:12px',
 					'id': 'kanno-check-btn',
 					'click': ui.createHandlerFn(this, 'handleCheck')
-				}, _('Check'))
+				}, _('Check All'))
 			]),
-			E('div', { 'id': 'kanno-access' }, [
-				E('span', { 'class': 'kanno-muted' }, _('Click Check to test connectivity'))
+			E('div', { 'id': 'kanno-access' },
+				accessSites.map(L.bind(function (site) {
+					return E('div', { 'class': 'kanno-access-item' }, [
+						E('span', { 'class': 'kanno-access-dot' }),
+						E('span', { 'class': 'kanno-access-name' }, site.name),
+						E('span', { 'class': 'kanno-access-result', 'data-site': site.name }, '—'),
+						E('button', {
+							'class': 'cbi-button cbi-button-action',
+							'style': 'padding:1px 10px;font-size:11px;margin-left:6px',
+							'click': ui.createHandlerFn(this, 'handleCheckSite', site)
+						}, _('Check'))
+					]);
+				}, this))
+			),
+			E('div', { 'class': 'kanno-row', 'style': 'margin-top:10px' }, [
+				E('input', {
+					'class': 'cbi-input-text', 'id': 'kanno-custom-url', 'type': 'text',
+					'style': 'flex:1;min-width:160px;font-size:12px',
+					'placeholder': 'https://example.com'
+				}),
+				E('button', {
+					'class': 'cbi-button cbi-button-action',
+					'style': 'padding:2px 12px;font-size:12px',
+					'click': ui.createHandlerFn(this, 'handleCheckCustom')
+				}, _('Check'))
 			])
 		]);
 
@@ -158,6 +194,9 @@ return view.extend({
 		]);
 		dnsSelect.value = dns.mode || 'fake-ip';
 
+		var tunCheck = E('input', { 'type': 'checkbox', 'id': 'kanno-tun', 'style': 'margin-right:6px' });
+		tunCheck.checked = global.tun !== false;
+
 		var settingsCard = E('div', { 'class': 'kanno-card' }, [
 			E('div', { 'class': 'kanno-card-title' }, _('Quick Settings')),
 			E('div', { 'class': 'cbi-value' }, [
@@ -165,8 +204,17 @@ return view.extend({
 				E('div', { 'class': 'cbi-value-field' }, [modeSelect])
 			]),
 			E('div', { 'class': 'cbi-value' }, [
-				E('label', { 'class': 'cbi-value-title' }, _('Running Mode')),
+				E('label', { 'class': 'cbi-value-title' }, _('DNS Mode')),
 				E('div', { 'class': 'cbi-value-field' }, [dnsSelect])
+			]),
+			E('div', { 'class': 'cbi-value' }, [
+				E('label', { 'class': 'cbi-value-title' }, _('TUN Mode')),
+				E('div', { 'class': 'cbi-value-field' }, [
+					E('label', { 'style': 'display:flex;align-items:center;cursor:pointer' }, [
+						tunCheck,
+						E('span', {}, _('Enable TUN transparent proxy'))
+					])
+				])
 			]),
 			E('div', { 'style': 'text-align:right;margin-top:6px' }, [
 				E('button', {
@@ -228,32 +276,82 @@ return view.extend({
 		});
 	},
 
+	_updateSiteResult: function (name, ok, latency) {
+		var items = document.querySelectorAll('#kanno-access .kanno-access-item');
+		for (var i = 0; i < items.length; i++) {
+			var nameEl = items[i].querySelector('.kanno-access-name');
+			if (nameEl && nameEl.textContent === name) {
+				var dot = items[i].querySelector('.kanno-access-dot');
+				var res = items[i].querySelector('.kanno-access-result');
+				if (dot) { dot.className = 'kanno-access-dot ' + (ok ? 'ok' : 'fail'); }
+				if (res) {
+					res.className = 'kanno-access-result ' + (ok ? 'ok' : 'fail');
+					res.textContent = ok ? latency + ' ms' : 'Timeout';
+				}
+				break;
+			}
+		}
+	},
+
 	handleCheck: function () {
+		var self = this;
 		var btn = document.getElementById('kanno-check-btn');
-		var el = document.getElementById('kanno-access');
 		if (btn) btn.disabled = true;
-		dom.content(el, E('span', { 'class': 'kanno-muted' }, _('Checking…')));
 		return api.call('check_access').then(function (r) {
 			var sites = (r && r.sites) || [];
-			dom.content(el, sites.map(function (s) {
-				return E('div', { 'class': 'kanno-access-item' }, [
-					E('span', { 'class': 'kanno-access-dot ' + (s.ok ? 'ok' : 'fail') }),
-					E('span', { 'class': 'kanno-access-name' }, s.name),
-					E('span', { 'class': 'kanno-access-result ' + (s.ok ? 'ok' : 'fail') },
-						s.ok ? s.latency + ' ms' : 'Timeout')
-				]);
-			}));
+			sites.forEach(function (s) { self._updateSiteResult(s.name, s.ok, s.latency); });
 			if (btn) btn.disabled = false;
 		}).catch(function () {
-			dom.content(el, E('span', { 'class': 'kanno-muted' }, _('Check failed')));
 			if (btn) btn.disabled = false;
+		});
+	},
+
+	handleCheckSite: function (site, ev) {
+		var self = this;
+		var btn = ev.currentTarget || ev.target;
+		if (btn) btn.disabled = true;
+		return api.call('check_site', { name: site.name, url: site.url }).then(function (r) {
+			if (r) self._updateSiteResult(r.name, r.ok, r.latency);
+			if (btn) btn.disabled = false;
+		}).catch(function () {
+			if (btn) btn.disabled = false;
+		});
+	},
+
+	handleCheckCustom: function () {
+		var self = this;
+		var inp = document.getElementById('kanno-custom-url');
+		var url = (inp && inp.value || '').trim();
+		if (!url) return;
+		if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+		var name = url.replace(/^https?:\/\//, '').replace(/\/.*/, '');
+		return api.call('check_site', { name: name, url: url }).then(function (r) {
+			if (!r) return;
+			var el = document.getElementById('kanno-access');
+			if (!el) return;
+			var existing = el.querySelector('[data-site="' + name + '"]');
+			if (existing) {
+				var item = existing.closest('.kanno-access-item');
+				var dot = item && item.querySelector('.kanno-access-dot');
+				if (dot) dot.className = 'kanno-access-dot ' + (r.ok ? 'ok' : 'fail');
+				existing.className = 'kanno-access-result ' + (r.ok ? 'ok' : 'fail');
+				existing.textContent = r.ok ? r.latency + ' ms' : 'Timeout';
+			} else {
+				el.appendChild(E('div', { 'class': 'kanno-access-item' }, [
+					E('span', { 'class': 'kanno-access-dot ' + (r.ok ? 'ok' : 'fail') }),
+					E('span', { 'class': 'kanno-access-name' }, name),
+					E('span', { 'class': 'kanno-access-result ' + (r.ok ? 'ok' : 'fail'), 'data-site': name },
+						r.ok ? r.latency + ' ms' : 'Timeout')
+				]));
+			}
 		});
 	},
 
 	handleSaveSettings: function () {
 		var mode = document.getElementById('kanno-mode').value;
 		var dnsMode = document.getElementById('kanno-dns-mode').value;
-		return api.call('set_mode', { mode: mode, dns_mode: dnsMode }).then(function () {
+		var tun = document.getElementById('kanno-tun').checked;
+		return api.call('set_mode', { mode: mode, dns_mode: dnsMode, tun: tun }).then(function () {
 			return api.call('restart');
 		}).then(function () {
 			notify(E('p', _('Settings saved, restarting…')), 3000);

@@ -26,7 +26,8 @@
 				"/sbin/uci": [ "exec" ],
 				"/usr/bin/kanno": [ "exec" ],
 				"/bin/sh": [ "exec" ],
-				"/etc/kanno/*": [ "read", "write" ]
+				"/etc/kanno/*": [ "read", "write" ],
+			"/var/log/kanno.log": [ "write" ]
 			}
 		}
 	}

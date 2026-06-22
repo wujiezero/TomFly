@@ -129,7 +129,7 @@ kanno_list() {
         sed 's/kanno\.proxy_\(.*\)\.name=\(.*\)/\1  \2/'
 }
 
-# Test node latency
+# Test node latency via curl TCP connect timing (BusyBox nc lacks precision)
 kanno_test() {
     local id="$1"
     local sec="proxy_${id}"
@@ -137,13 +137,14 @@ kanno_test() {
     local port=$(uci -q get "kanno.${sec}.port")
     [ -z "$server" ] && { echo "Node not found"; exit 1; }
 
-    local start=$(date +%s%N 2>/dev/null || date +%s)
-    if nc -z -w3 "$server" "$port" 2>/dev/null; then
-        local end=$(date +%s%N 2>/dev/null || date +%s)
-        echo "$((( end - start ) / 1000000))ms"
-    else
-        echo "timeout"
-    fi
+    local t
+    t=$(curl -o /dev/null -s -w '%{time_connect}' --connect-timeout 5 --max-time 6 "http://${server}:${port}" 2>/dev/null)
+    echo "$t" | awk '{ms=int($1*1000)} ms>0{print ms"ms"; next} {print "timeout"}'
+}
+
+kanno_clear_log() {
+    : > "$KANNO_LOG"
+    echo "Log cleared"
 }
 
 case "${1:-help}" in
@@ -155,7 +156,8 @@ case "${1:-help}" in
     add)     kanno_add "$2" ;;
     del)     kanno_del "$2" ;;
     list)    kanno_list ;;
-    test)    kanno_test "$2" ;;
+    test)      kanno_test "$2" ;;
+    clear_log) kanno_clear_log ;;
     update)
         case "$2" in
         mihomo)  update_mihomo ;;

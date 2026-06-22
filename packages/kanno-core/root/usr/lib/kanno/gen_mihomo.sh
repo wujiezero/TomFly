@@ -148,7 +148,9 @@ get_proxy_names() {
 generate_mihomo_config() {
     local mode=$(_u "global.mode"); mode="${mode:-rule}"
     local loglevel=$(_u "global.log_level"); loglevel="${loglevel:-info}"
-    local ipv6=$(_u "global.ipv6"); ipv6="${ipv6:-false}"
+    local _ipv6=$(_u "global.ipv6")
+    local ipv6; [ "$_ipv6" = "1" ] && ipv6="true" || ipv6="false"
+    local tun=$(_u "global.tun"); tun="${tun:-1}"
     local dns_mode=$(_u "dns.mode"); dns_mode="${dns_mode:-fake-ip}"
     local dns_port=$(_u "dns.listen_port"); dns_port="${dns_port:-1053}"
 
@@ -173,7 +175,7 @@ external-controller: 127.0.0.1:9090
 secret: "${secret}"
 
 tun:
-  enable: true
+  enable: $([ "$tun" = "1" ] && echo "true" || echo "false")
   stack: system
   device: Meta
   auto-route: true

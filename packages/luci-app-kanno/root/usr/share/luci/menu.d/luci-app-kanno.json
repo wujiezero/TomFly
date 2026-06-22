@@ -25,14 +25,6 @@
 			"path": "kanno/nodes"
 		}
 	},
-	"admin/services/kanno/groups": {
-		"title": "分组",
-		"order": 30,
-		"action": {
-			"type": "view",
-			"path": "kanno/groups"
-		}
-	},
 	"admin/services/kanno/rules": {
 		"title": "规则",
 		"order": 40,

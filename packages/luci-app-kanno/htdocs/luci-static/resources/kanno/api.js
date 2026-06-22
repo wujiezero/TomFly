@@ -262,7 +262,8 @@ function getGlobal() {
 			kernel:    uci.get(CONF, 'global', 'kernel') || 'mihomo',
 			mode:      uci.get(CONF, 'global', 'mode') || 'rule',
 			log_level: uci.get(CONF, 'global', 'log_level') || 'info',
-			ipv6:      uci.get(CONF, 'global', 'ipv6') === '1'
+			ipv6:      uci.get(CONF, 'global', 'ipv6') === '1',
+			tun:       uci.get(CONF, 'global', 'tun') !== '0'
 		};
 	});
 }
@@ -370,9 +371,71 @@ function setMode(p) {
 		cmds.push(['set', CONF + '.dns=dns']);
 		cmds.push(['set', CONF + '.dns.mode=' + p.dns_mode]);
 	}
+	if (p.tun !== undefined) {
+		cmds.push(['set', CONF + '.global=global']);
+		cmds.push(['set', CONF + '.global.tun=' + (p.tun ? '1' : '0')]);
+	}
 	if (cmds.length === 0) return Promise.resolve({ ok: true });
 	cmds.push(['commit', CONF]);
 	return uciBatch(cmds).then(refresh).then(function () { return { ok: true }; });
+}
+
+/* ── Clear log ─────────────────────────────────── */
+function clearLog() {
+	return exec(KANNO, ['clear_log']).then(function () { return { ok: true }; });
+}
+
+/* ── Per-site access check ────────────────────── */
+function checkSite(p) {
+	var url = (p.url || '').trim();
+	var name = (p.name || url).trim();
+	if (!url) return Promise.resolve({ ok: false, error: 'no url' });
+	return exec('/usr/bin/curl', ['-o', '/dev/null', '-s', '-w', '%{time_total}', '--max-time', '5', url])
+		.then(function (r) {
+			var t = parseFloat((r.stdout || '').trim());
+			return {
+				name: name,
+				ok: r.code === 0 && t > 0,
+				latency: r.code === 0 && t > 0 ? Math.round(t * 1000) : null
+			};
+		});
+}
+
+/* ── Edit node fields ─────────────────────────── */
+function editNode(p) {
+	if (!/^[0-9a-f]+$/.test(p.id || ''))
+		return Promise.resolve({ ok: false, error: 'invalid id' });
+	var sec = CONF + '.proxy_' + p.id;
+	var allowed = { name: 1, server: 1, port: 1, uuid: 1, password: 1,
+		security: 1, sni: 1, fp: 1, pbk: 1, sid: 1, flow: 1,
+		transport: 1, transport_host: 1, transport_path: 1, transport_svcname: 1,
+		method: 1, insecure: 1, obfs: 1, obfs_password: 1, alpn: 1 };
+	var cmds = [];
+	Object.keys(p.fields || {}).forEach(function (k) {
+		if (allowed[k]) cmds.push(['set', sec + '.' + k + '=' + p.fields[k]]);
+	});
+	if (cmds.length === 0) return Promise.resolve({ ok: true });
+	cmds.push(['commit', CONF]);
+	return uciBatch(cmds).then(refresh).then(function () { return { ok: true }; });
+}
+
+function getNode(p) {
+	if (!/^[0-9a-f]+$/.test(p.id || ''))
+		return Promise.resolve({ ok: false, error: 'invalid id' });
+	return loadConf().then(function () {
+		var sec = 'proxy_' + p.id;
+		var obj = {};
+		var keys = ['name', 'type', 'server', 'port', 'uuid', 'password',
+			'security', 'sni', 'fp', 'pbk', 'sid', 'flow',
+			'transport', 'transport_host', 'transport_path', 'transport_svcname',
+			'method', 'insecure', 'obfs', 'obfs_password', 'alpn', 'enabled'];
+		keys.forEach(function (k) {
+			var v = uci.get(CONF, sec, k);
+			if (v !== undefined && v !== null) obj[k] = v;
+		});
+		obj.id = p.id;
+		return obj;
+	});
 }
 
 /* ── Kernel upload install (file already in /tmp via cgi-io) */
@@ -403,9 +466,10 @@ var DISPATCH = {
 	restart: restart, stop: stopSvc, get_groups: getGroups, save_groups: saveGroups,
 	get_rules: getRules, save_rules: saveRules, get_dns: getDns, save_dns: saveDns,
 	get_global: getGlobal, save_global: saveGlobal, get_kernels: getKernels,
-	update_kernel: updateKernel, get_logs: getLogs,
-	get_traffic: getTraffic, check_access: checkAccess, set_mode: setMode,
-	install_upload: installUpload
+	update_kernel: updateKernel, get_logs: getLogs, clear_log: clearLog,
+	get_traffic: getTraffic, check_access: checkAccess, check_site: checkSite,
+	set_mode: setMode, install_upload: installUpload,
+	get_node: getNode, edit_node: editNode
 };
 
 return baseclass.extend({

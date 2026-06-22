@@ -41,6 +41,7 @@ return view.extend({
 			]),
 			E('div', { 'class': 'kanno-actions', 'style': 'justify-content:flex-end' }, [
 				E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleTest', n.id) }, _('Test')),
+				E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': ui.createHandlerFn(this, 'handleEdit', n.id) }, _('Edit')),
 				E('button', { 'class': 'cbi-button cbi-button-neutral', 'click': ui.createHandlerFn(this, 'handleToggle', n) }, n.enabled ? _('Disable') : _('Enable')),
 				E('button', { 'class': 'cbi-button cbi-button-remove', 'click': ui.createHandlerFn(this, 'handleDelete', n) }, _('Delete'))
 			])
@@ -151,6 +152,60 @@ return view.extend({
 				}, _('Delete'))
 			])
 		]);
+	},
+
+	handleEdit: function (id) {
+		var self = this;
+		return api.call('get_node', { id: id }).then(function (node) {
+			if (!node || !node.id) {
+				ui.addNotification(null, E('p', _('Node not found')), 'danger');
+				return;
+			}
+			var fields = ['name', 'server', 'port', 'uuid', 'password', 'security',
+				'sni', 'fp', 'pbk', 'sid', 'flow', 'transport',
+				'transport_host', 'transport_path', 'method'];
+			var rows = fields.filter(function (k) {
+				return node[k] !== undefined && node[k] !== null && node[k] !== '';
+			}).map(function (k) {
+				return E('div', { 'class': 'cbi-value' }, [
+					E('label', { 'class': 'cbi-value-title', 'style': 'min-width:120px' }, k),
+					E('div', { 'class': 'cbi-value-field' }, [
+						E('input', {
+							'class': 'cbi-input-text', 'type': 'text',
+							'data-field': k, 'value': node[k],
+							'style': 'width:100%'
+						})
+					])
+				]);
+			});
+			ui.showModal(_('Edit Node: ') + (node.name || node.id), [
+				E('div', { 'class': 'kanno-edit-fields', 'style': 'max-height:400px;overflow-y:auto' }, rows),
+				E('div', { 'class': 'right', 'style': 'margin-top:14px' }, [
+					E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')), ' ',
+					E('button', {
+						'class': 'cbi-button cbi-button-save important',
+						'click': ui.createHandlerFn(self, function () {
+							var inputs = document.querySelectorAll('.kanno-edit-fields input[data-field]');
+							var changed = {};
+							for (var i = 0; i < inputs.length; i++) {
+								var k = inputs[i].getAttribute('data-field');
+								var v = inputs[i].value;
+								if (v !== (node[k] || '')) changed[k] = v;
+							}
+							if (!Object.keys(changed).length) { ui.hideModal(); return; }
+							return api.call('edit_node', { id: id, fields: changed }).then(function (r) {
+								ui.hideModal();
+								if (r && r.ok) {
+									notify(E('p', _('Node updated')), 2500);
+									return self.reload();
+								}
+								ui.addNotification(null, E('p', _('Save failed')), 'danger');
+							});
+						})
+					}, _('Save'))
+				])
+			]);
+		});
 	},
 
 	handleSave: null,

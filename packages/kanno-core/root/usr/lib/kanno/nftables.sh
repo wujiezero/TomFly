@@ -43,11 +43,11 @@ table inet ${NFT_TABLE} {
         type filter hook prerouting priority mangle; policy accept;
         ip daddr @bypass_ip4 return
         ip daddr @force_direct_ip4 return
-        ip daddr @force_proxy_ip4 meta l4proto tcp tproxy to 127.0.0.1:7893 meta mark set ${MARK_ROUTE} accept
-        ip daddr @force_proxy_ip4 meta l4proto udp tproxy to 127.0.0.1:7893 meta mark set ${MARK_ROUTE} accept
+        ip daddr @force_proxy_ip4 meta l4proto tcp tproxy ip to 127.0.0.1:7893 meta mark set ${MARK_ROUTE} accept
+        ip daddr @force_proxy_ip4 meta l4proto udp tproxy ip to 127.0.0.1:7893 meta mark set ${MARK_ROUTE} accept
         ip daddr @cn_ip4 return
-        meta l4proto tcp tproxy to 127.0.0.1:7893 meta mark set ${MARK_ROUTE}
-        meta l4proto udp tproxy to 127.0.0.1:7893 meta mark set ${MARK_ROUTE}
+        meta l4proto tcp tproxy ip to 127.0.0.1:7893 meta mark set ${MARK_ROUTE}
+        meta l4proto udp tproxy ip to 127.0.0.1:7893 meta mark set ${MARK_ROUTE}
     }
 
     # Skip traffic from kanno itself (TUN outbound)
