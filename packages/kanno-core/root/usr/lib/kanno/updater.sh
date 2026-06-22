@@ -48,10 +48,12 @@ get_download_url() {
 
 download_and_verify() {
     local url="$1" dest="$2"
-    local tmpfile="${dest}.kanno_tmp"
+    local fname
+    fname=$(basename "$url")
+    local tmpfile="/tmp/kanno-dl-${fname}"
     local size
 
-    progress "Downloading: $(basename "$url")"
+    progress "Downloading: $fname"
     if ! curl -fL --max-time 180 --progress-bar -o "$tmpfile" "$url" 2>&1; then
         log_error "download failed: $url"
         rm -f "$tmpfile"
@@ -68,10 +70,14 @@ download_and_verify() {
     # NOTE: *.tar.gz must come before *.gz — shell case matches first pattern
     case "$url" in
     *.tar.gz)
-        local tmpdir="${dest}.kanno_dir"
+        local tmpdir="/tmp/kanno-extract-$$"
         mkdir -p "$tmpdir"
         progress "Extracting tar.gz..."
-        tar -xzf "$tmpfile" -C "$tmpdir" 2>/dev/null
+        if ! tar -xzf "$tmpfile" -C "$tmpdir" 2>&1; then
+            log_error "tar extraction failed"
+            rm -rf "$tmpfile" "$tmpdir"
+            return 1
+        fi
         local extracted
         extracted=$(find "$tmpdir" -type f -not -name '*.sha256' | head -1)
         if [ -n "$extracted" ]; then
@@ -84,12 +90,10 @@ download_and_verify() {
         rm -rf "$tmpfile" "$tmpdir"
         ;;
     *.gz)
-        # gunzip output must go to a separate tmp path, not ${tmpfile%.gz}
-        # because tmpfile ends in .kanno_tmp, not .gz
-        local ungz="${dest}.kanno_ungz"
-        progress "Decompressing..."
-        if ! gunzip -c "$tmpfile" > "$ungz" 2>/dev/null; then
-            log_error "decompression failed"
+        local ungz="/tmp/kanno-ungz-$$"
+        progress "Decompressing ${size} bytes..."
+        if ! gzip -d -c "$tmpfile" > "$ungz"; then
+            log_error "gzip decompression failed (disk full? run: df -h /tmp)"
             rm -f "$tmpfile" "$ungz"
             return 1
         fi
@@ -97,7 +101,7 @@ download_and_verify() {
         rm -f "$tmpfile"
         ;;
     *.zip)
-        local tmpdir="${dest}.kanno_dir"
+        local tmpdir="/tmp/kanno-extract-$$"
         mkdir -p "$tmpdir"
         progress "Extracting zip..."
         if ! unzip -o "$tmpfile" -d "$tmpdir" >/dev/null 2>&1; then
