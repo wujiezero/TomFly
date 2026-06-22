@@ -12,6 +12,31 @@
 
 _kernel() { uci -q get kanno.global.kernel 2>/dev/null || echo "mihomo"; }
 
+# Which data-plane carries traffic into the kernel:
+#   tproxy → kanno's nftables + policy routing redirect (mihomo with TUN off)
+#   tun    → the kernel's own TUN auto-route/auto-redirect handles everything
+# sing-box only ships a TUN inbound here, so it is ALWAYS "tun"; mihomo uses
+# tproxy unless the user turns TUN on. Running both at once double-captures the
+# same traffic and breaks the proxy, so exactly one path is ever active.
+_dataplane() {
+    [ "$(_kernel)" = "singbox" ] && { echo "tun"; return; }
+    [ "$(uci -q get kanno.global.tun 2>/dev/null)" = "1" ] && echo "tun" || echo "tproxy"
+}
+
+# Ensure the TUN char device exists before a TUN-mode kernel starts. kmod-tun
+# may be installed but its module not loaded (no /dev/net/tun), in which case
+# the kernel silently fails to create its interface and nothing is proxied.
+_ensure_tun_dev() {
+    [ -c /dev/net/tun ] && return 0
+    modprobe tun 2>/dev/null || insmod tun 2>/dev/null
+    if [ ! -c /dev/net/tun ]; then
+        mkdir -p /dev/net
+        mknod /dev/net/tun c 10 200 2>/dev/null
+        chmod 600 /dev/net/tun 2>/dev/null
+    fi
+    [ -c /dev/net/tun ]
+}
+
 # Validate the on-disk config for the active kernel (0 = valid).
 _validate_config() {
     case "$1" in
@@ -134,11 +159,37 @@ kanno_start() {
     fi
     echo $$ > "$lockfile"
     log_info "KannoProxy starting..."
+
+    local plane=$(_dataplane)
+    [ "$plane" = "tun" ] && _ensure_tun_dev
+
     start_kernel || { rm -f "$lockfile"; return 1; }
-    sleep 1
-    setup_routing
-    load_nftables
-    load_custom_rules
+    sleep 2
+
+    # A TUN data-plane is only real if the kernel actually created its
+    # interface. When it cannot (no kmod-tun matching the running kernel, a
+    # virtualised env with no /dev/net/tun passthrough, etc.) fall back to
+    # TPROXY so traffic is still proxied instead of leaking out unproxied.
+    if [ "$plane" = "tun" ]; then
+        local tun_if; [ "$(_kernel)" = "singbox" ] && tun_if="Kanno" || tun_if="Meta"
+        if ! ip link show "$tun_if" >/dev/null 2>&1; then
+            log_warn "TUN interface '$tun_if' did not come up — falling back to TPROXY"
+            KANNO_FORCE_TPROXY=1; export KANNO_FORCE_TPROXY
+            stop_kernel
+            start_kernel || { unset KANNO_FORCE_TPROXY; rm -f "$lockfile"; return 1; }
+            unset KANNO_FORCE_TPROXY
+            sleep 1
+            plane=tproxy
+        fi
+    fi
+
+    if [ "$plane" = "tproxy" ]; then
+        setup_routing
+        load_nftables
+        load_custom_rules
+    else
+        log_info "TUN data-plane — kernel manages routing; skipping tproxy nftables"
+    fi
     setup_dns
     log_info "KannoProxy started"
     rm -f "$lockfile"

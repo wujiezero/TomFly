@@ -87,6 +87,7 @@ install_pkg curl
 install_pkg jsonfilter
 install_pkg nftables
 install_pkg kmod-nft-tproxy
+install_pkg kmod-tun            # TUN data-plane (optional TUN mode)
 install_pkg ip-full             "ip-full"              "ip-full"
 install_pkg ca-bundle           "ca-certificates"      "ca-bundle"
 # rpcd-mod-file provides the `file` ubus object that the LuCI JS views use

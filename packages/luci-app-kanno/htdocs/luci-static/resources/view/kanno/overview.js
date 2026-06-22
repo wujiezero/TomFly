@@ -221,7 +221,7 @@ return view.extend({
 				E('div', { 'class': 'cbi-value-field' }, [
 					E('label', { 'style': 'display:flex;align-items:center;cursor:pointer' }, [
 						tunCheck,
-						E('span', {}, _('Enable TUN transparent proxy'))
+						E('span', {}, _('Use TUN instead of TPROXY (kernel manages routing)'))
 					])
 				])
 			]),

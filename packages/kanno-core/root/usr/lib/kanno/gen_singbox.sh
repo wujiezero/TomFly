@@ -132,7 +132,9 @@ generate_singbox_config() {
     printf '    "independent_cache": true\n'
     printf '  },\n'
     printf '  "inbounds": [\n'
-    printf '    {"type": "tun", "tag": "tun-in", "interface_name": "Kanno", "inet4_address": "172.19.0.1/30", "auto_route": true, "strict_route": false, "stack": "system"}\n'
+    # auto_redirect captures the router's FORWARDED (LAN client) traffic into
+    # the TUN — required for other devices using this router as their gateway.
+    printf '    {"type": "tun", "tag": "tun-in", "interface_name": "Kanno", "inet4_address": "172.19.0.1/30", "auto_route": true, "auto_redirect": true, "strict_route": false, "stack": "system"}\n'
     printf '  ],\n'
     printf '  "outbounds": [\n'
 
