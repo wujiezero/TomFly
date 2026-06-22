@@ -89,6 +89,9 @@ install_pkg nftables
 install_pkg kmod-nft-tproxy
 install_pkg ip-full             "ip-full"              "ip-full"
 install_pkg ca-bundle           "ca-certificates"      "ca-bundle"
+# rpcd-mod-file provides the `file` ubus object that the LuCI JS views use
+# for fs.exec()/fs.read(); without it the native UI cannot reach the backend.
+install_pkg rpcd-mod-file
 
 # ── Step 2: Create directory structure ────────────────────────────────────────
 step "Creating directories..."
@@ -102,8 +105,6 @@ mkdir -p /var/log
 mkdir -p /var/run/kanno
 mkdir -p /www/luci-static/resources/kanno
 mkdir -p /www/luci-static/resources/view/kanno
-mkdir -p /www/cgi-bin
-mkdir -p /usr/lib/lua/luci/rpc
 mkdir -p /usr/share/luci/menu.d
 mkdir -p /usr/share/rpcd/acl.d
 mkdir -p /etc/init.d
@@ -183,22 +184,19 @@ info "Web UI installed"
 
 # ── Step 6: LuCI menu integration ────────────────────────────────────────────
 step "Installing LuCI integration..."
-# Lua backend module (invoked by the CGI endpoint)
-download "packages/luci-app-kanno/luasrc/rpc/kanno.lua" \
-    /usr/lib/lua/luci/rpc/kanno.lua
-# CGI backend — serves /cgi-bin/kanno for the views' JSON calls
-download "packages/luci-app-kanno/root/www/cgi-bin/kanno" \
-    /www/cgi-bin/kanno 755
 # LuCI menu entry (registers the KannoProxy tabs under Services)
 download "packages/luci-app-kanno/root/usr/share/luci/menu.d/luci-app-kanno.json" \
     /usr/share/luci/menu.d/luci-app-kanno.json
-# rpcd ACL
+# rpcd ACL (grants the LuCI session the uci + fs.exec access the views need)
 download "packages/luci-app-kanno/root/usr/share/rpcd/acl.d/luci-app-kanno.json" \
     /usr/share/rpcd/acl.d/luci-app-kanno.json
 
-# Remove leftovers from the old iframe/Alpine SPA UI (pre-native rewrite)
+# Remove leftovers from the old iframe/Alpine SPA and the dead Lua/CGI backend.
+# ImmortalWrt 25.12 ships JS-only LuCI (no Lua), so the views now talk to the
+# system directly via uci + fs.exec — no CGI required.
 rm -rf /www/luci-static/kanno 2>/dev/null
 rm -f  /www/luci-static/resources/view/kanno/main.js 2>/dev/null
+rm -f  /www/cgi-bin/kanno /usr/lib/lua/luci/rpc/kanno.lua 2>/dev/null
 
 # Drop LuCI's cached menu/module index so the new tabs appear immediately
 rm -f /tmp/luci-indexcache /tmp/luci-indexcache.* 2>/dev/null
