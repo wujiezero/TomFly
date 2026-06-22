@@ -188,17 +188,27 @@ update_singbox() {
     progress "Extracting..."
     tar -xzf "$tmpfile" -C "$tmpdir" 2>/dev/null
     local extracted
-    extracted=$(find "$tmpdir" -name 'sing-box' -type f | head -1)
-    if [ -n "$extracted" ]; then
-        mv "$extracted" "$SINGBOX_BIN"
-        chmod +x "$SINGBOX_BIN"
-        echo "$tag" > "${KANNO_DIR}/singbox.version"
-        log_info "sing-box updated to $tag"
-    else
+    extracted=$(find "$tmpdir" -type f -name 'sing-box' | head -1)
+    [ -z "$extracted" ] && extracted=$(find "$tmpdir" -type f ! -name '*.sha256' ! -name 'LICENSE' ! -name '*.md' | head -1)
+    if [ -z "$extracted" ]; then
         log_error "sing-box binary not found in archive"
         rm -rf "$tmpfile" "$tmpdir"
         return 1
     fi
+    if ! mv "$extracted" "$SINGBOX_BIN"; then
+        log_error "mv to $SINGBOX_BIN failed (overlay full? run: df -h /)"
+        rm -rf "$tmpfile" "$tmpdir"
+        return 1
+    fi
+    chmod +x "$SINGBOX_BIN"
+    if ! "$SINGBOX_BIN" version >/dev/null 2>&1; then
+        log_error "sing-box binary not executable on this platform"
+        rm -f "$SINGBOX_BIN"
+        rm -rf "$tmpfile" "$tmpdir"
+        return 1
+    fi
+    echo "$tag" > "${KANNO_DIR}/singbox.version"
+    log_info "sing-box updated to $tag"
     rm -rf "$tmpfile" "$tmpdir"
 }
 

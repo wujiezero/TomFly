@@ -104,11 +104,33 @@ return view.extend({
 	},
 
 	handleUpdate: function (target) {
+		var self = this;
 		return api.call('update_kernel', { target: target }).then(function (r) {
-			ui.addTimeLimitedNotification(null,
-				E('p', (r && r.message) || _('Update started in background — check the Logs tab')),
-				5000, 'info');
+			ui.showModal(_('Updating ') + target, [
+				E('p', { 'class': 'spinning' }, _('Downloading and installing — this may take a minute…'))
+			]);
+			var attempts = 0;
+			var poll = window.setInterval(function () {
+				attempts++;
+				if (attempts > 40) {
+					window.clearInterval(poll);
+					ui.hideModal();
+					ui.addNotification(null, E('p', _('Update timed out — check the Logs tab')), 'warning');
+					return;
+				}
+				L.resolveDefault(api.call('get_kernels'), {}).then(function (k) {
+					var info = k[target] || k[target === 'singbox' ? 'singbox' : target] || {};
+					if (info.installed) {
+						window.clearInterval(poll);
+						ui.hideModal();
+						ui.addTimeLimitedNotification(null,
+							E('p', target + ' ' + _('updated successfully')), 4000, 'success');
+						window.location.reload();
+					}
+				});
+			}, 3000);
 		}).catch(function (e) {
+			ui.hideModal();
 			ui.addNotification(null, E('p', _('Update failed: ') + e.message), 'danger');
 		});
 	},

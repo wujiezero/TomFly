@@ -15,6 +15,12 @@ _qget() {
         { read v; urldecode "$v"; }
 }
 
+# Split host:port on LAST colon (POSIX, no 'rev')
+_hostport() {
+    _HP_HOST=${1%:*}
+    _HP_PORT=${1##*:}
+}
+
 parse_vless() {
     local uri="$1"
     local frag body userhost params uuid host port
@@ -25,8 +31,8 @@ parse_vless() {
 
     uuid=$(echo "$body" | cut -d'@' -f1)
     userhost=$(echo "$body" | cut -d'@' -f2-)
-    host=$(echo "$userhost" | cut -d'?' -f1 | rev | cut -d':' -f2- | rev)
-    port=$(echo "$userhost" | cut -d'?' -f1 | rev | cut -d':' -f1 | rev)
+    _hostport "$(echo "$userhost" | cut -d'?' -f1)"
+    host=$_HP_HOST; port=$_HP_PORT
     params=$(echo "$userhost" | grep -o '?.*' | cut -c2-)
 
     echo "type=vless"
@@ -84,8 +90,8 @@ parse_trojan() {
     body=$(echo "$uri" | sed 's/#.*//' | sed 's|^trojan://||')
     password=$(echo "$body" | cut -d'@' -f1)
     userhost=$(echo "$body" | cut -d'@' -f2-)
-    host=$(echo "$userhost" | cut -d'?' -f1 | rev | cut -d':' -f2- | rev)
-    port=$(echo "$userhost" | cut -d'?' -f1 | rev | cut -d':' -f1 | rev)
+    _hostport "$(echo "$userhost" | cut -d'?' -f1)"
+    host=$_HP_HOST; port=$_HP_PORT
     params=$(echo "$userhost" | grep -o '?.*' | cut -c2-)
 
     echo "type=trojan"
@@ -127,8 +133,8 @@ parse_ss() {
         hostport=$(echo "$rest" | cut -d'@' -f2-)
     fi
 
-    host=$(echo "$hostport" | rev | cut -d':' -f2- | rev)
-    port=$(echo "$hostport" | rev | cut -d':' -f1 | rev)
+    _hostport "$hostport"
+    host=$_HP_HOST; port=$_HP_PORT
 
     echo "type=ss"
     echo "name=$frag"
@@ -147,8 +153,8 @@ parse_hy2() {
     password=$(echo "$body" | cut -d'@' -f1)
     hostport=$(echo "$body" | cut -d'@' -f2- | cut -d'?' -f1)
     params=$(echo "$body" | grep -o '?.*' | cut -c2-)
-    host=$(echo "$hostport" | rev | cut -d':' -f2- | rev)
-    port=$(echo "$hostport" | rev | cut -d':' -f1 | rev)
+    _hostport "$hostport"
+    host=$_HP_HOST; port=$_HP_PORT
 
     echo "type=hy2"
     echo "name=$frag"
@@ -172,8 +178,8 @@ parse_tuic() {
     params=$(echo "$body" | grep -o '?.*' | cut -c2-)
     uuid=$(echo "$userinfo" | cut -d':' -f1)
     password=$(echo "$userinfo" | cut -d':' -f2-)
-    host=$(echo "$hostport" | rev | cut -d':' -f2- | rev)
-    port=$(echo "$hostport" | rev | cut -d':' -f1 | rev)
+    _hostport "$hostport"
+    host=$_HP_HOST; port=$_HP_PORT
 
     echo "type=tuic"
     echo "name=$frag"
@@ -197,8 +203,8 @@ parse_naive() {
     hostport=$(echo "$body" | cut -d'@' -f2-)
     user=$(echo "$userinfo" | cut -d':' -f1)
     password=$(echo "$userinfo" | cut -d':' -f2-)
-    host=$(echo "$hostport" | rev | cut -d':' -f2- | rev)
-    port=$(echo "$hostport" | rev | cut -d':' -f1 | rev)
+    _hostport "$hostport"
+    host=$_HP_HOST; port=$_HP_PORT
 
     echo "type=naive"
     echo "name=$frag"
