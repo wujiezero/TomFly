@@ -1,0 +1,197 @@
+/*
+ * KannoProxy — native LuCI styling.
+ * Colours come from the active LuCI theme via CSS custom properties with
+ * hex fallbacks, so the UI matches both the light and dark LuCI themes.
+ */
+
+.kanno { animation: kanno-fade .25s ease; }
+@keyframes kanno-fade {
+	from { opacity: 0; transform: translateY(6px); }
+	to   { opacity: 1; transform: none; }
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.kanno-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+	gap: 12px;
+	margin-bottom: 14px;
+}
+.kanno-grid-2 {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+	gap: 12px;
+	margin-bottom: 14px;
+}
+.kanno-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+.kanno-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Cards ──────────────────────────────────────────────── */
+.kanno-card {
+	background: var(--background-color-high, #fff);
+	border: 1px solid var(--border-color-medium, #e5e7eb);
+	border-radius: 10px;
+	padding: 16px 18px;
+	margin-bottom: 14px;
+	transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+}
+.kanno-card:hover { box-shadow: 0 4px 18px rgba(0, 0, 0, .07); }
+.kanno-card-title {
+	font-size: 11.5px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .7px;
+	color: var(--text-color-low, #8a8a8a);
+	margin-bottom: 13px;
+}
+
+/* ── Stat cards ─────────────────────────────────────────── */
+.kanno-stat { display: flex; align-items: center; gap: 14px; }
+.kanno-stat:hover { transform: translateY(-2px); }
+.kanno-stat-icon {
+	width: 44px; height: 44px;
+	border-radius: 11px;
+	display: flex; align-items: center; justify-content: center;
+	flex-shrink: 0;
+	transition: transform .18s ease;
+}
+.kanno-stat:hover .kanno-stat-icon { transform: scale(1.07); }
+.kanno-stat-icon svg { width: 22px; height: 22px; }
+.kanno-stat-value { font-size: 19px; font-weight: 700; line-height: 1.15; word-break: break-all; }
+.kanno-stat-label { font-size: 12px; color: var(--text-color-low, #8a8a8a); margin-top: 2px; }
+
+.kanno-ic-green  { background: rgba(0, 172, 89, .12);  color: #00ac59; }
+.kanno-ic-blue   { background: rgba(25, 118, 210, .12); color: #1976d2; }
+.kanno-ic-amber  { background: rgba(239, 189, 11, .16); color: #d39e00; }
+.kanno-ic-red    { background: rgba(246, 43, 18, .1);   color: #f62b12; }
+.kanno-ic-indigo { background: rgba(99, 102, 241, .13); color: #6366f1; }
+
+/* ── Status pill ────────────────────────────────────────── */
+.kanno-pill {
+	display: inline-flex; align-items: center; gap: 7px;
+	padding: 5px 13px;
+	border-radius: 20px;
+	font-size: 13px; font-weight: 600;
+}
+.kanno-pill-on  { background: rgba(0, 172, 89, .12); color: #00ac59; }
+.kanno-pill-off { background: rgba(246, 43, 18, .1); color: #f62b12; }
+.kanno-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.kanno-pill-on .kanno-dot { animation: kanno-pulse 2s infinite; }
+@keyframes kanno-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* ── Segmented switch (kernel/mode selectors) ───────────── */
+.kanno-switch {
+	display: inline-flex;
+	border: 1px solid var(--border-color-medium, #e5e7eb);
+	border-radius: 8px;
+	overflow: hidden;
+}
+.kanno-switch button {
+	border: none; background: transparent;
+	padding: 7px 17px;
+	font-size: 13px; cursor: pointer;
+	color: var(--text-color-medium, #555);
+	transition: background .15s ease, color .15s ease;
+}
+.kanno-switch button + button { border-left: 1px solid var(--border-color-medium, #e5e7eb); }
+.kanno-switch button:hover:not(.active) { background: rgba(25, 118, 210, .07); }
+.kanno-switch button.active { background: var(--primary-color-high, #1976d2); color: #fff; }
+
+/* ── Node cards ─────────────────────────────────────────── */
+.kanno-node {
+	background: var(--background-color-high, #fff);
+	border: 1px solid var(--border-color-medium, #e5e7eb);
+	border-radius: 9px;
+	padding: 12px 14px;
+	margin-bottom: 8px;
+	transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease;
+	animation: kanno-fade .2s ease;
+}
+.kanno-node:hover { box-shadow: 0 2px 12px rgba(0, 0, 0, .06); transform: translateY(-1px); }
+.kanno-node.off { opacity: .55; }
+.kanno-node-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.kanno-node-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kanno-addr { font-family: var(--font-mono, monospace); font-size: 12px; color: var(--text-color-low, #8a8a8a); margin-bottom: 8px; }
+.kanno-meta { display: flex; gap: 8px; margin-bottom: 10px; }
+.kanno-meta span {
+	font-size: 11px; color: var(--text-color-low, #8a8a8a);
+	background: var(--background-color-low, #f3f4f6);
+	border: 1px solid var(--border-color-low, #eee);
+	padding: 2px 7px; border-radius: 4px;
+}
+
+/* badges */
+.kanno-badge {
+	font-size: 10px; font-weight: 700;
+	padding: 2px 7px; border-radius: 4px;
+	text-transform: uppercase; letter-spacing: .4px;
+	background: rgba(25, 118, 210, .1); color: #1976d2;
+}
+.kanno-badge.vmess  { background: rgba(25, 118, 210, .1);  color: #1976d2; }
+.kanno-badge.vless  { background: rgba(99, 102, 241, .12); color: #6366f1; }
+.kanno-badge.trojan { background: rgba(239, 189, 11, .15); color: #b8860b; }
+.kanno-badge.ss     { background: rgba(0, 172, 89, .12);   color: #00ac59; }
+.kanno-badge.hy2, .kanno-badge.hysteria2 { background: rgba(246, 43, 18, .1); color: #f62b12; }
+.kanno-badge.tuic   { background: rgba(139, 92, 246, .14); color: #8b5cf6; }
+.kanno-badge.naive  { background: rgba(20, 184, 166, .14); color: #14b8a6; }
+
+.kanno-lat { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+.kanno-lat-good { background: rgba(0, 172, 89, .12); color: #00ac59; }
+.kanno-lat-ok   { background: rgba(239, 189, 11, .15); color: #b8860b; }
+.kanno-lat-bad  { background: rgba(246, 43, 18, .1);  color: #f62b12; }
+.kanno-lat-none { color: var(--text-color-low, #aaa); }
+
+/* ── Kernel cards ───────────────────────────────────────── */
+.kanno-kernel { text-align: center; }
+.kanno-kernel-badge {
+	width: 52px; height: 52px; border-radius: 14px;
+	display: inline-flex; align-items: center; justify-content: center;
+	font-weight: 800; font-size: 22px; margin-bottom: 8px;
+	transition: transform .18s ease;
+}
+.kanno-kernel:hover .kanno-kernel-badge { transform: scale(1.08); }
+.kanno-kernel-name { font-weight: 700; font-size: 15px; }
+.kanno-kernel-ver { font-size: 12px; color: var(--text-color-low, #8a8a8a); font-family: var(--font-mono, monospace); margin: 2px 0 8px; }
+
+/* ── Helpers ────────────────────────────────────────────── */
+.kanno-input { width: 100%; }
+.kanno-muted { color: var(--text-color-low, #8a8a8a); font-size: 13px; }
+.kanno-empty { text-align: center; padding: 30px; color: var(--text-color-low, #999); }
+.kanno-field { margin-bottom: 14px; }
+.kanno-field > label { display: block; font-size: 12px; font-weight: 500; color: var(--text-color-medium, #555); margin-bottom: 6px; }
+.kanno-tips { list-style: none; padding: 0; margin: 0; }
+.kanno-tips li {
+	font-size: 12.5px; color: var(--text-color-medium, #555);
+	padding: 5px 0 5px 15px; position: relative;
+	border-bottom: 1px solid var(--border-color-low, #f0f0f0);
+}
+.kanno-tips li:last-child { border-bottom: none; }
+.kanno-tips li::before { content: '›'; position: absolute; left: 0; color: var(--primary-color-high, #1976d2); font-weight: 700; }
+
+/* ── Log viewer ─────────────────────────────────────────── */
+.kanno-log {
+	font-family: var(--font-mono, monospace);
+	font-size: 12px; line-height: 1.65;
+	white-space: pre-wrap; word-break: break-all;
+	max-height: 560px; overflow: auto;
+	background: var(--background-color-low, #f7f7f8);
+	border: 1px solid var(--border-color-low, #eee);
+	border-radius: 8px; padding: 14px;
+}
+
+/* tags (group proxies) */
+.kanno-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kanno-tag {
+	display: inline-flex; align-items: center; gap: 5px;
+	background: rgba(25, 118, 210, .1); color: #1976d2;
+	border: 1px solid rgba(25, 118, 210, .2);
+	border-radius: 5px; padding: 3px 8px; font-size: 12px;
+}
+.kanno-tag button { background: none; border: none; cursor: pointer; color: inherit; opacity: .65; padding: 0; line-height: 1; }
+.kanno-tag button:hover { opacity: 1; }

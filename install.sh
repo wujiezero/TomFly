@@ -100,7 +100,7 @@ mkdir -p /etc/kanno/mihomo
 mkdir -p /etc/kanno/singbox
 mkdir -p /var/log
 mkdir -p /var/run/kanno
-mkdir -p /www/luci-static/kanno
+mkdir -p /www/luci-static/resources/kanno
 mkdir -p /www/luci-static/resources/view/kanno
 mkdir -p /www/cgi-bin
 mkdir -p /usr/lib/lua/luci/rpc
@@ -167,46 +167,43 @@ download_critical "$CORE/etc/init.d/kanno"             /etc/init.d/kanno        
 
 info "Core scripts installed"
 
-# ── Step 5: Download Web UI ───────────────────────────────────────────────────
+# ── Step 5: Download Web UI (native LuCI JS views) ────────────────────────────
 step "Downloading Web UI..."
-UI="packages/luci-app-kanno/htdocs/luci-static/kanno"
-download "$UI/index.html"    /www/luci-static/kanno/index.html
-download "$UI/style.css"     /www/luci-static/kanno/style.css
-download "$UI/app.js"        /www/luci-static/kanno/app.js
+RES="packages/luci-app-kanno/htdocs/luci-static/resources"
 
-# Alpine.js is a third-party library (~44 KB); fetch from official CDN
-# rather than bloating the repo with a binary blob.
-ALPINE_DEST="/www/luci-static/kanno/alpine.min.js"
-if [ ! -f "$ALPINE_DEST" ] || [ "$(wc -c < "$ALPINE_DEST")" -lt 10000 ]; then
-    if curl -fsSL --max-time 60 \
-        -o "$ALPINE_DEST" \
-        "https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" 2>/dev/null; then
-        info "Alpine.js 3.14.1 downloaded"
-    else
-        warn "Alpine.js download failed — Web UI will not function without it"
-    fi
-else
-    info "Alpine.js already present"
-fi
+# Shared backend client + stylesheet
+download "$RES/kanno/api.js"         /www/luci-static/resources/kanno/api.js
+download "$RES/view/kanno/style.css" /www/luci-static/resources/view/kanno/style.css
+
+# Tab views (rendered as native LuCI top tabs under Services → KannoProxy)
+for v in overview nodes groups rules dns kernel log; do
+    download "$RES/view/kanno/$v.js" "/www/luci-static/resources/view/kanno/$v.js"
+done
 info "Web UI installed"
 
 # ── Step 6: LuCI menu integration ────────────────────────────────────────────
 step "Installing LuCI integration..."
-# Lua RPC handler (required by both CGI and potential rpcd use)
+# Lua backend module (invoked by the CGI endpoint)
 download "packages/luci-app-kanno/luasrc/rpc/kanno.lua" \
     /usr/lib/lua/luci/rpc/kanno.lua
-# LuCI JS view — registers "KannoProxy" in Services menu (LuCI 26.x)
-download "packages/luci-app-kanno/htdocs/luci-static/resources/view/kanno/main.js" \
-    /www/luci-static/resources/view/kanno/main.js
-# CGI backend — serves /cgi-bin/kanno for the SPA's JSON-RPC calls
+# CGI backend — serves /cgi-bin/kanno for the views' JSON calls
 download "packages/luci-app-kanno/root/www/cgi-bin/kanno" \
     /www/cgi-bin/kanno 755
-# LuCI menu entry
+# LuCI menu entry (registers the KannoProxy tabs under Services)
 download "packages/luci-app-kanno/root/usr/share/luci/menu.d/luci-app-kanno.json" \
     /usr/share/luci/menu.d/luci-app-kanno.json
-# rpcd ACL (allows LuCI session to call kanno ubus methods if rpcd is used)
+# rpcd ACL
 download "packages/luci-app-kanno/root/usr/share/rpcd/acl.d/luci-app-kanno.json" \
     /usr/share/rpcd/acl.d/luci-app-kanno.json
+
+# Remove leftovers from the old iframe/Alpine SPA UI (pre-native rewrite)
+rm -rf /www/luci-static/kanno 2>/dev/null
+rm -f  /www/luci-static/resources/view/kanno/main.js 2>/dev/null
+
+# Drop LuCI's cached menu/module index so the new tabs appear immediately
+rm -f /tmp/luci-indexcache /tmp/luci-indexcache.* 2>/dev/null
+rm -rf /tmp/luci-modulecache 2>/dev/null
+
 info "LuCI integration installed"
 
 # ── Step 7: UCI default config ───────────────────────────────────────────────
@@ -226,7 +223,7 @@ step "Configuring web access..."
 if [ -f /etc/config/uhttpd ]; then
     # Check if there's an http_nterface 80 listening
     ROUTER_IP=$(uci -q get network.lan.ipaddr 2>/dev/null || echo "192.168.1.1")
-    info "uhttpd is configured — UI will be at http://${ROUTER_IP}/luci-static/kanno/"
+    info "uhttpd is configured — UI is at http://${ROUTER_IP}/cgi-bin/luci/admin/services/kanno"
 else
     warn "uhttpd config not found, UI may need manual setup"
 fi
@@ -278,7 +275,7 @@ ROUTER_IP=$(uci -q get network.lan.ipaddr 2>/dev/null || echo "192.168.1.1")
 printf "\n${GREEN}╔══════════════════════════════════════╗${NC}\n"
 printf "${GREEN}║  KannoProxy v%-6s  installed! ✓    ║${NC}\n" "$KANNO_VER"
 printf "${GREEN}╚══════════════════════════════════════╝${NC}\n\n"
-printf "  Web UI   → ${CYAN}http://${ROUTER_IP}/luci-static/kanno/${NC}\n"
+printf "  Web UI   → ${CYAN}http://${ROUTER_IP}/cgi-bin/luci/admin/services/kanno${NC}\n"
 printf "  CLI help → ${CYAN}kanno${NC}\n\n"
 printf "  Quick start:\n"
 printf "    kanno add 'vless://...'   # add a node\n"
