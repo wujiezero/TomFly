@@ -226,6 +226,40 @@
 }
 
 /* ── Kernel cards ───────────────────────────────────────── */
+.tomfly-kernel-section-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 18px 0 8px;
+	min-width: 0;
+}
+.tomfly-kernel-section-head .tomfly-kernel-section-label {
+	margin-bottom: 0;
+	flex-shrink: 0;
+}
+.tomfly-section-hint {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+	font-weight: 400;
+	letter-spacing: normal;
+	text-transform: none;
+	color: var(--text-color-low, #8a8a8a);
+	cursor: help;
+}
+.tomfly-grid-4 {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 12px;
+	margin-bottom: 14px;
+}
+.tomfly-grid-4 > .tomfly-card {
+	margin-bottom: 0;
+	min-width: 0;
+}
 .tomfly-kernel { text-align: center; }
 .tomfly-kernel-badge {
 	width: 52px; height: 52px; border-radius: 14px;

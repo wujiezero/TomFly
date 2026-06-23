@@ -128,6 +128,9 @@ return view.extend({
 		kernelSelect.addEventListener('change', updateKernelNote);
 		window.setTimeout(updateKernelNote, 0);
 
+		var geoHint = _(
+			'Each kernel uses different files — install only what you need, or both if you switch kernels.');
+
 		return E('div', { 'class': 'tomfly' }, [
 			E('div', { 'class': 'tomfly-card' }, [
 				E('div', { 'class': 'tomfly-card-title' }, [
@@ -149,19 +152,16 @@ return view.extend({
 					])
 				])
 			]),
-			E('div', { 'class': 'tomfly-card-title', 'style': 'margin:18px 0 8px' }, _('Kernels')),
-			E('div', { 'class': 'tomfly-grid' }, [
+			E('div', { 'class': 'tomfly-kernel-section-head' }, [
+				E('span', { 'class': 'tomfly-card-title tomfly-kernel-section-label' }, _('Kernels')),
+				E('span', { 'class': 'tomfly-card-title tomfly-kernel-section-label' }, _('Geo Rules / GeoData')),
+				E('span', { 'class': 'tomfly-section-hint', 'title': geoHint }, geoHint)
+			]),
+			E('div', { 'class': 'tomfly-grid-4' }, [
 				this.kernelCard('M', 'blue', 'mihomo', mihomo.version, mihomo.installed, 'mihomo',
 					mihomo.installed ? _('installed') : _('not installed')),
 				this.kernelCard('S', 'red', 'sing-box', singbox.version, singbox.installed, 'singbox',
-					singbox.installed ? _('installed') : _('not installed'))
-			]),
-			E('div', { 'class': 'tomfly-card-title', 'style': 'margin:18px 0 8px' }, [
-				_('Geo Rules / GeoData'),
-				E('span', { 'class': 'tomfly-muted', 'style': 'font-size:12px;font-weight:400;margin-left:8px' },
-					_('Each kernel uses different files — install only what you need, or both if you switch kernels.'))
-			]),
-			E('div', { 'class': 'tomfly-grid' }, [
+					singbox.installed ? _('installed') : _('not installed')),
 				this.geoCard('G', 'blue', _('mihomo GeoData'), 'mihomo', [
 					{ name: 'geoip.dat', desc: _('GeoIP CN rules') },
 					{ name: 'geosite.dat', desc: _('GeoSite CN rules') }
