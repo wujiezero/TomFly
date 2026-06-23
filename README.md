@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="TomFly" width="120" />
+</p>
+
 # TomFly
 
 A clean, native-LuCI transparent proxy plugin for ImmortalWrt 25.12.0+ / OpenWrt 22.03+,
@@ -75,15 +79,68 @@ tar -xzf sing-box-1.13.12-linux-arm64.tar.gz
 install -m755 sing-box-*/sing-box /usr/bin/sing-box
 ```
 
-**GeoData** (arch-independent) — releases: <https://github.com/Loyalsoldier/v2ray-rules-dat/releases>
-Download `geoip.dat` and `geosite.dat`, then:
+**Geo rule files** (architecture-independent) — all live under `/etc/tomfly/geodata/`.
+mihomo and sing-box use **different formats**. The Kernel tab shows two separate cards; update or upload each set independently.
+
+### mihomo GeoData (`.dat`)
+
+Powers mihomo `GEOSITE` / `GEOIP` routing rules.
+
+| File | Purpose |
+|------|---------|
+| `geoip.dat` | GeoIP rules for mainland China |
+| `geosite.dat` | GeoSite rules for mainland China |
+
+**Source:** [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) releases.
 
 ```sh
+# Online update (mihomo .dat only)
+tomfly update geodata_mihomo
+
+# Manual copy
 cp geoip.dat geosite.dat /etc/tomfly/geodata/
 ```
 
-Behind the GFW, prefer the jsDelivr mirror, e.g.
-`https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat`.
+jsDelivr mirrors:
+
+- `https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat`
+- `https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat`
+
+**LuCI:** *Services → TomFly → Kernel* → **mihomo GeoData** card → *Update online* or *Upload* (`geoip.dat` / `geosite.dat` or a `.tar.gz` bundle).
+
+### sing-box Rule-Sets (`.srs`)
+
+Powers sing-box `geoip-cn` / `geosite-cn` rules. The generated config **prefers local files**; without them sing-box tries CDN (often blocked in China — upload offline copies).
+
+| File | Purpose |
+|------|---------|
+| `geoip-cn.srs` | GeoIP CN binary rule-set |
+| `geosite-cn.srs` | GeoSite CN binary rule-set |
+
+**Download URLs:**
+
+- `https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs`
+- `https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs`
+
+(Raw fallback: `https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs`, etc.)
+
+```sh
+# Online update (sing-box .srs only)
+tomfly update geodata_singbox
+
+# Manual copy (recommended when CDN is unreachable)
+cp geoip-cn.srs geosite-cn.srs /etc/tomfly/geodata/
+tomfly restart
+```
+
+**LuCI:** *Kernel* tab → **sing-box Rule-Sets** card → *Upload* `geoip-cn.srs` / `geosite-cn.srs` (one file per upload is fine).
+
+### Update everything at once
+
+```sh
+tomfly update geodata    # tries both mihomo .dat and sing-box .srs
+tomfly update all        # kernels + all geo files
+```
 
 ## Supported Protocols
 
@@ -124,7 +181,7 @@ tomfly add "vless://uuid@host:port?security=reality&..."   # add a node
 tomfly list                                                # list nodes
 tomfly test <node-id>                                      # test connectivity
 tomfly start | stop | restart | status                     # service control
-tomfly update mihomo | singbox | geodata | all             # online update
+tomfly update mihomo | singbox | geodata | geodata_mihomo | geodata_singbox | all   # online update
 ```
 
 ## Package Structure

@@ -3,6 +3,7 @@
 'require ui';
 'require tomfly.api as api';
 'require tomfly.kernel-profile as kprof';
+'require tomfly.brand as brand';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -46,14 +47,14 @@ return view.extend({
 		var geoBanner = kp.geoRemote
 			? E('div', { 'class': 'tomfly-kernel-banner' }, [
 				E('strong', {}, _('sing-box: ')),
-				_('GeoSite/GeoIP CN rules use remote rule-sets downloaded on first start (requires CDN access).')
+				_('Uses local geoip-cn.srs / geosite-cn.srs under /etc/tomfly/geodata/ when present. Upload them on the Kernel page (sing-box Rule-Sets card) if CDN is unreachable.')
 			])
 			: E('div', { 'class': 'tomfly-kernel-banner' }, [
 				E('strong', {}, _('mihomo: ')),
 				_('GeoSite/GeoIP CN rules use local geodata files under /etc/tomfly/geodata/.')
 			]);
 
-		return E('div', { 'class': 'tomfly' }, [
+		return brand.page(_('Routing Rules'), [
 			geoBanner,
 			E('div', { 'class': 'tomfly-grid-2' }, [
 				E('div', { 'class': 'tomfly-card' }, [

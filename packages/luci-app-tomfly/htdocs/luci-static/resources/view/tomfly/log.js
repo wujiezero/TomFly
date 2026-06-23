@@ -3,6 +3,7 @@
 'require ui';
 'require poll';
 'require tomfly.api as api';
+'require tomfly.brand as brand';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -34,7 +35,7 @@ return view.extend({
 			});
 		}, 5);
 
-		return E('div', { 'class': 'tomfly' }, [
+		return brand.page(_('Service Log'), [
 			E('div', { 'class': 'tomfly-row', 'style': 'margin-bottom:10px' }, [
 				E('h3', { 'style': 'margin:0' }, _('Service Log')),
 				E('button', {

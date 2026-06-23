@@ -307,16 +307,24 @@ function getKernels() {
 		out('/bin/sh', ['-c',
 			'cat /etc/tomfly/geodata/version 2>/dev/null;' +
 			'echo "|";test -f /etc/tomfly/geodata/geoip.dat && echo yes || echo no;' +
-			'echo "|";test -f /etc/tomfly/geodata/geosite.dat && echo yes || echo no'
+			'echo "|";test -f /etc/tomfly/geodata/geosite.dat && echo yes || echo no;' +
+			'echo "|";test -f /etc/tomfly/geodata/geoip-cn.srs && echo yes || echo no;' +
+			'echo "|";test -f /etc/tomfly/geodata/geosite-cn.srs && echo yes || echo no'
 		]).then(function (t) {
 			var a = (t || '').split('|');
-			return { version: (a[0] || '').trim(), geoip: (a[1] || 'no').trim(), geosite: (a[2] || 'no').trim() };
+			return {
+				version: (a[0] || '').trim(),
+				geoip: (a[1] || 'no').trim(),
+				geosite: (a[2] || 'no').trim(),
+				srs_geoip: (a[3] || 'no').trim(),
+				srs_geosite: (a[4] || 'no').trim()
+			};
 		})
 	]).then(function (a) { return { mihomo: a[0], singbox: a[1], geodata: a[2] }; });
 }
 function updateKernel(p) {
 	var t = p.target;
-	if (!/^[a-z]+$/.test(t || ''))
+	if (!/^[a-z][a-z0-9_]*$/.test(t || ''))
 		return Promise.resolve({ ok: false, error: 'invalid target' });
 	return bg(TOMFLY + ' update ' + t + ' >/tmp/tomfly-update.log 2>&1 &').then(function () {
 		return { ok: true, message: 'Update started in background — check the Logs tab' };
@@ -510,25 +518,37 @@ function installUpload(p) {
 	var src = '/tmp/tomfly-upload.bin';
 	var geodir = '/etc/tomfly/geodata';
 
-	if (target === 'geodata') {
+	if (target === 'geodata' || target === 'geodata_mihomo' || target === 'geodata_singbox') {
 		var kind = p.kind || 'bundle';
-		if (kind !== 'bundle' && kind !== 'geoip' && kind !== 'geosite')
+		var valid = ['bundle', 'geoip', 'geosite', 'geoip_srs', 'geosite_srs',
+			'bundle_mihomo', 'bundle_singbox'];
+		if (valid.indexOf(kind) < 0)
 			return Promise.resolve({ ok: false, error: 'invalid geodata kind' });
+		if (target === 'geodata_mihomo' && kind === 'bundle')
+			kind = 'bundle_mihomo';
+		if (target === 'geodata_singbox' && kind === 'bundle')
+			kind = 'bundle_singbox';
 		var cmd = 'src=' + src + '; dir=' + geodir + '; T=/tmp/tomfly-gd-$$; '
 			+ 'mkdir -p "$dir" "$T"; ok=0; '
 			+ '_one() { local name="$1"; local dest="$dir/$name"; '
 			+ '  if gzip -dc "$src" > "$dest" 2>/dev/null; then ok=$((ok+1)); return 0; fi; '
 			+ '  cp "$src" "$dest" && ok=$((ok+1)); }; '
-			+ 'if [ "' + kind + '" = "geoip" ]; then _one geoip.dat; '
-			+ 'elif [ "' + kind + '" = "geosite" ]; then _one geosite.dat; '
-			+ 'else '
+			+ '_bundle() { local names="$1"; local name f; '
 			+ '  if tar -xzf "$src" -C "$T" 2>/dev/null || tar -xf "$src" -C "$T" 2>/dev/null; then '
-			+ '    gip=$(find "$T" -type f -name geoip.dat 2>/dev/null | head -1); '
-			+ '    gst=$(find "$T" -type f -name geosite.dat 2>/dev/null | head -1); '
-			+ '    [ -n "$gip" ] && cp "$gip" "$dir/geoip.dat" && ok=$((ok+1)); '
-			+ '    [ -n "$gst" ] && cp "$gst" "$dir/geosite.dat" && ok=$((ok+1)); '
-			+ '  fi; '
-			+ 'fi; '
+			+ '    for name in $names; do '
+			+ '      f=$(find "$T" -type f -name "$name" 2>/dev/null | head -1); '
+			+ '      [ -n "$f" ] && cp "$f" "$dir/$name" && ok=$((ok+1)); '
+			+ '    done; '
+			+ '  fi; }; '
+			+ 'case "' + kind + '" in '
+			+ 'geoip) _one geoip.dat ;; '
+			+ 'geosite) _one geosite.dat ;; '
+			+ 'geoip_srs) _one geoip-cn.srs ;; '
+			+ 'geosite_srs) _one geosite-cn.srs ;; '
+			+ 'bundle_mihomo) _bundle "geoip.dat geosite.dat" ;; '
+			+ 'bundle_singbox) _bundle "geoip-cn.srs geosite-cn.srs" ;; '
+			+ '*) _bundle "geoip.dat geosite.dat geoip-cn.srs geosite-cn.srs" ;; '
+			+ 'esac; '
 			+ 'rm -rf "$T" "$src"; '
 			+ 'if [ "$ok" -gt 0 ]; then date "+%Y-%m-%d" > "$dir/version"; exit 0; fi; '
 			+ 'echo "no geodata files found in upload" >&2; exit 1';

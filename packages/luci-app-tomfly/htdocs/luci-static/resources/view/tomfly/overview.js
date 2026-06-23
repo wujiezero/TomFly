@@ -5,6 +5,7 @@
 'require dom';
 'require tomfly.api as api';
 'require tomfly.kernel-profile as kprof';
+'require tomfly.brand as brand';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -301,7 +302,7 @@ return view.extend({
 			}, this));
 		}, this), 3);
 
-		return E('div', { 'class': 'tomfly' }, [
+		return brand.page(_('Overview'), [
 			statusCard, trafficGrid,
 			E('div', { 'class': 'tomfly-grid-2' }, [accessCard, settingsCard]),
 			quick

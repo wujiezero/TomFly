@@ -148,7 +148,9 @@ download_and_verify() {
         ;;
     esac
 
-    chmod +x "$dest"
+    case "$dest" in
+    /usr/bin/*) chmod +x "$dest" ;;
+    esac
     local final_size
     final_size=$(wc -c < "$dest" 2>/dev/null || echo 0)
     log_info "installed: $dest ($(( final_size / 1024 )) KB)"
@@ -247,30 +249,76 @@ update_singbox() {
     rm -rf "$tmpfile" "$tmpdir"
 }
 
-update_geodata() {
-    progress "Downloading GeoData (geoip.dat + geosite.dat)..."
-    local base="https://github.com/${GEODATA_REPO}/releases/latest/download"
-    local ok=0
+_geodata_stamp() {
+    date '+%Y-%m-%d' > "${GEODATA_DIR}/version"
+}
 
+update_geodata_mihomo() {
+    local ok=0 f
+
+    progress "Downloading mihomo GeoData (geoip.dat + geosite.dat)..."
     for f in geoip.dat geosite.dat; do
-        if download_and_verify "${base}/${f}" "${GEODATA_DIR}/${f}"; then
+        if download_and_verify \
+            "https://github.com/${GEODATA_REPO}/releases/latest/download/${f}" \
+            "${GEODATA_DIR}/${f}"; then
+            ok=$((ok + 1))
+        elif download_and_verify \
+            "https://cdn.jsdelivr.net/gh/${GEODATA_REPO}@release/${f}" \
+            "${GEODATA_DIR}/${f}"; then
             ok=$((ok + 1))
         else
-            log_warn "Failed to download $f, trying mirror..."
-            local mirror="https://cdn.jsdelivr.net/gh/${GEODATA_REPO}@release/${f}"
-            download_and_verify "$mirror" "${GEODATA_DIR}/${f}" && ok=$((ok + 1))
+            log_warn "Failed to download ${f}"
         fi
     done
 
     if [ "$ok" -eq 2 ]; then
-        local ver
-        ver=$(date '+%Y-%m-%d')
-        echo "$ver" > "${GEODATA_DIR}/version"
-        log_info "geodata updated ($ver)"
-    else
-        log_error "geodata update incomplete (${ok}/2 files)"
-        return 1
+        _geodata_stamp
+        log_info "mihomo geodata updated ($(cat "${GEODATA_DIR}/version"))"
+        return 0
     fi
+    log_error "mihomo geodata incomplete (${ok}/2) — upload geoip.dat + geosite.dat manually"
+    return 1
+}
+
+update_geodata_singbox() {
+    local ok=0 item fname urls url got
+
+    progress "Downloading sing-box rule-sets (geoip-cn.srs + geosite-cn.srs)..."
+    for item in \
+        "geoip-cn.srs|https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs|https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs" \
+        "geosite-cn.srs|https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs|https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs"
+    do
+        fname="${item%%|*}"
+        urls="${item#*|}"
+        got=0
+        for url in $(echo "$urls" | tr '|' ' '); do
+            if download_and_verify "$url" "${GEODATA_DIR}/${fname}"; then
+                got=1
+                break
+            fi
+        done
+        [ "$got" = "1" ] && ok=$((ok + 1)) || log_warn "Failed to download ${fname}"
+    done
+
+    if [ "$ok" -eq 2 ]; then
+        _geodata_stamp
+        log_info "sing-box rule-sets updated ($(cat "${GEODATA_DIR}/version"))"
+        return 0
+    fi
+    log_error "sing-box rule-sets incomplete (${ok}/2) — upload geoip-cn.srs + geosite-cn.srs manually"
+    return 1
+}
+
+update_geodata() {
+    local ok_dat=0 ok_srs=0
+    update_geodata_mihomo && ok_dat=1
+    update_geodata_singbox && ok_srs=1
+    if [ "$ok_dat" = "1" ] || [ "$ok_srs" = "1" ]; then
+        [ "$ok_dat" = "0" ] && log_warn "mihomo geodata was not updated"
+        [ "$ok_srs" = "0" ] && log_warn "sing-box rule-sets were not updated"
+        return 0
+    fi
+    return 1
 }
 
 check_kernel_version() {

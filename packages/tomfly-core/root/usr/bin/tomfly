@@ -301,10 +301,12 @@ case "${1:-help}" in
         case "$2" in
         mihomo)  update_mihomo ;;
         singbox) update_singbox ;;
-        geodata) update_geodata ;;
+        geodata)         update_geodata ;;
+        geodata_mihomo)  update_geodata_mihomo ;;
+        geodata_singbox) update_geodata_singbox ;;
         core)    update_core ;;
         all)     update_core; update_mihomo; update_singbox; update_geodata ;;
-        *)       echo "Usage: tomfly update {core|mihomo|singbox|geodata|all}" ;;
+        *)       echo "Usage: tomfly update {core|mihomo|singbox|geodata|geodata_mihomo|geodata_singbox|all}" ;;
         esac
         ;;
     *)
@@ -323,7 +325,9 @@ Commands:
   update core         Update TomFly scripts (gen_*, tomfly)
   update mihomo      Update mihomo kernel
   update singbox     Update sing-box kernel
-  update geodata     Update GeoIP/GeoSite data
+  update geodata          Update mihomo .dat + sing-box .srs rule-sets
+  update geodata_mihomo   Update mihomo geoip.dat + geosite.dat only
+  update geodata_singbox  Update sing-box geoip-cn.srs + geosite-cn.srs only
   update all         Update everything
 USAGE
         ;;

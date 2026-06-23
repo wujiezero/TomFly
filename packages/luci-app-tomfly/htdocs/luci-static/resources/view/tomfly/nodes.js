@@ -4,6 +4,7 @@
 'require dom';
 'require tomfly.api as api';
 'require tomfly.kernel-profile as kprof';
+'require tomfly.brand as brand';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -80,7 +81,7 @@ return view.extend({
 			]));
 		}
 
-		return E('div', { 'class': 'tomfly' }, banners.concat([
+		return brand.page(_('Proxy Nodes'), banners.concat([
 			E('div', { 'class': 'tomfly-row', 'style': 'margin-bottom:14px' }, [
 				E('h3', { 'style': 'margin:0' }, [
 					_('Proxy Nodes'),

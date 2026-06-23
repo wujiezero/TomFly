@@ -4,6 +4,7 @@
 'require request';
 'require tomfly.api as api';
 'require tomfly.kernel-profile as kprof';
+'require tomfly.brand as brand';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -27,6 +28,17 @@ function select(id, value, opts) {
 		opts.map(function (o) { return E('option', { 'value': o[0] }, o[1]); }));
 	el.value = value;
 	return el;
+}
+
+function geoUpdateDone(target, geo) {
+	geo = geo || {};
+	if (target === 'geodata_mihomo')
+		return geo.geoip === 'yes' && geo.geosite === 'yes';
+	if (target === 'geodata_singbox')
+		return geo.srs_geoip === 'yes' && geo.srs_geosite === 'yes';
+	if (target === 'geodata')
+		return geoUpdateDone('geodata_mihomo', geo) || geoUpdateDone('geodata_singbox', geo);
+	return false;
 }
 
 return view.extend({
@@ -58,10 +70,43 @@ return view.extend({
 		]);
 	},
 
+	geoCard: function (badge, cls, title, kernelLabel, files, version, ok, target, statusText) {
+		return E('div', { 'class': 'tomfly-card tomfly-kernel tomfly-geo-card' }, [
+			E('div', { 'class': 'tomfly-kernel-badge tomfly-ic-' + cls }, badge),
+			E('div', { 'class': 'tomfly-kernel-name' }, title),
+			E('div', { 'class': 'tomfly-kernel-sub' }, [
+				E('span', { 'class': 'tomfly-muted' }, _('Kernel: ')),
+				kernelLabel
+			]),
+			E('ul', { 'class': 'tomfly-geo-files' }, files.map(function (f) {
+				return E('li', {}, [
+					E('code', {}, f.name),
+					' — ',
+					f.desc
+				]);
+			})),
+			E('div', { 'class': 'tomfly-kernel-ver' }, version ? (_('Updated: ') + version) : _('not installed')),
+			E('div', { 'style': 'margin-bottom:10px' }, [
+				E('span', { 'class': 'tomfly-pill ' + (ok ? 'tomfly-pill-on' : 'tomfly-pill-off') }, statusText)
+			]),
+			E('div', { 'class': 'tomfly-actions', 'style': 'justify-content:center' }, [
+				E('button', {
+					'class': 'cbi-button cbi-button-action important',
+					'click': ui.createHandlerFn(this, 'handleUpdate', target)
+				}, _('Update online')),
+				E('button', {
+					'class': 'cbi-button cbi-button-action',
+					'click': ui.createHandlerFn(this, 'handleUpload', target)
+				}, _('Upload'))
+			])
+		]);
+	},
+
 	render: function (data) {
 		var g = data[0] || {}, k = data[1] || {};
 		var mihomo = k.mihomo || {}, singbox = k.singbox || {}, geo = k.geodata || {};
-		var geoOk = (geo.geoip === 'yes' && geo.geosite === 'yes');
+		var geoDatOk = (geo.geoip === 'yes' && geo.geosite === 'yes');
+		var geoSrsOk = (geo.srs_geoip === 'yes' && geo.srs_geosite === 'yes');
 		var kernel = g.kernel || 'mihomo';
 
 		var kernelSelect = select('k-kernel', kernel, [
@@ -84,7 +129,7 @@ return view.extend({
 		kernelSelect.addEventListener('change', updateKernelNote);
 		window.setTimeout(updateKernelNote, 0);
 
-		return E('div', { 'class': 'tomfly' }, [
+		return brand.page(_('Kernel & GeoData'), [
 			E('div', { 'class': 'tomfly-card' }, [
 				E('div', { 'class': 'tomfly-card-title' }, [
 					_('Global Settings'),
@@ -105,13 +150,29 @@ return view.extend({
 					])
 				])
 			]),
+			E('div', { 'class': 'tomfly-card-title', 'style': 'margin:18px 0 8px' }, _('Kernels')),
 			E('div', { 'class': 'tomfly-grid' }, [
 				this.kernelCard('M', 'blue', 'mihomo', mihomo.version, mihomo.installed, 'mihomo',
 					mihomo.installed ? _('installed') : _('not installed')),
 				this.kernelCard('S', 'red', 'sing-box', singbox.version, singbox.installed, 'singbox',
-					singbox.installed ? _('installed') : _('not installed')),
-				this.kernelCard('G', 'green', 'GeoData', geo.version, geoOk, 'geodata',
-					geoOk ? _('GeoIP + GeoSite') : _('missing data'))
+					singbox.installed ? _('installed') : _('not installed'))
+			]),
+			E('div', { 'class': 'tomfly-card-title', 'style': 'margin:18px 0 8px' }, [
+				_('Geo Rules / GeoData'),
+				E('span', { 'class': 'tomfly-muted', 'style': 'font-size:12px;font-weight:400;margin-left:8px' },
+					_('Each kernel uses different files — install only what you need, or both if you switch kernels.'))
+			]),
+			E('div', { 'class': 'tomfly-grid' }, [
+				this.geoCard('G', 'blue', _('mihomo GeoData'), 'mihomo', [
+					{ name: 'geoip.dat', desc: _('GeoIP CN rules') },
+					{ name: 'geosite.dat', desc: _('GeoSite CN rules') }
+				], geo.version, geoDatOk, 'geodata_mihomo',
+					geoDatOk ? _('GeoIP + GeoSite ready') : _('missing geoip.dat / geosite.dat')),
+				this.geoCard('R', 'red', _('sing-box Rule-Sets'), 'sing-box', [
+					{ name: 'geoip-cn.srs', desc: _('GeoIP CN (local rule-set)') },
+					{ name: 'geosite-cn.srs', desc: _('GeoSite CN (local rule-set)') }
+				], geo.version, geoSrsOk, 'geodata_singbox',
+					geoSrsOk ? _('SRS rule-sets ready') : _('missing geoip-cn.srs / geosite-cn.srs'))
 			])
 		]);
 	},
@@ -133,8 +194,7 @@ return view.extend({
 	},
 
 	handleUpdate: function (target) {
-		var self = this;
-		return api.call('update_kernel', { target: target }).then(function (r) {
+		return api.call('update_kernel', { target: target }).then(function () {
 			ui.showModal(_('Updating ') + target, [
 				E('p', { 'class': 'spinning' }, _('Downloading and installing — this may take a minute…'))
 			]);
@@ -148,9 +208,10 @@ return view.extend({
 					return;
 				}
 				L.resolveDefault(api.call('get_kernels'), {}).then(function (k) {
+					var geo = k.geodata || {};
 					var info = k[target] || k[target === 'singbox' ? 'singbox' : target] || {};
-					var done = target === 'geodata'
-						? (info.geoip === 'yes' && info.geosite === 'yes')
+					var done = (target === 'geodata_mihomo' || target === 'geodata_singbox' || target === 'geodata')
+						? geoUpdateDone(target, geo)
 						: !!info.installed;
 					if (done) {
 						window.clearInterval(poll);
@@ -167,31 +228,69 @@ return view.extend({
 	},
 
 	handleUpload: function (target) {
-		var self = this;
-		var isGeo = target === 'geodata';
-		var kindSelect = isGeo ? E('select', {
-			'class': 'cbi-input-select', 'id': 'tomfly-geodata-kind', 'style': 'width:100%;margin:8px 0'
-		}, [
-			E('option', { value: 'bundle' }, _('Archive with geoip.dat + geosite.dat (.tar.gz)')),
-			E('option', { value: 'geoip' }, _('GeoIP only (geoip.dat or .gz)')),
-			E('option', { value: 'geosite' }, _('GeoSite only (geosite.dat or .gz)'))
-		]) : null;
+		var isGeoMihomo = target === 'geodata_mihomo';
+		var isGeoSingbox = target === 'geodata_singbox';
+		var isGeo = isGeoMihomo || isGeoSingbox || target === 'geodata';
+		var kindSelect = null;
+
+		if (isGeoMihomo) {
+			kindSelect = E('select', {
+				'class': 'cbi-input-select', 'id': 'tomfly-geodata-kind', 'style': 'width:100%;margin:8px 0'
+			}, [
+				E('option', { value: 'bundle' }, _('Both files (archive or upload twice)')),
+				E('option', { value: 'geoip' }, 'geoip.dat'),
+				E('option', { value: 'geosite' }, 'geosite.dat')
+			]);
+		} else if (isGeoSingbox) {
+			kindSelect = E('select', {
+				'class': 'cbi-input-select', 'id': 'tomfly-geodata-kind', 'style': 'width:100%;margin:8px 0'
+			}, [
+				E('option', { value: 'bundle' }, _('Both files (archive or upload twice)')),
+				E('option', { value: 'geoip_srs' }, 'geoip-cn.srs'),
+				E('option', { value: 'geosite_srs' }, 'geosite-cn.srs')
+			]);
+		} else if (target === 'geodata') {
+			kindSelect = E('select', {
+				'class': 'cbi-input-select', 'id': 'tomfly-geodata-kind', 'style': 'width:100%;margin:8px 0'
+			}, [
+				E('option', { value: 'bundle' }, _('All four files (.tar.gz)')),
+				E('option', { value: 'geoip' }, 'mihomo: geoip.dat'),
+				E('option', { value: 'geosite' }, 'mihomo: geosite.dat'),
+				E('option', { value: 'geoip_srs' }, 'sing-box: geoip-cn.srs'),
+				E('option', { value: 'geosite_srs' }, 'sing-box: geosite-cn.srs')
+			]);
+		}
+
 		var fileInput = E('input', {
 			'type': 'file',
-			'accept': isGeo ? '.dat,.gz,.tar,.tar.gz,.tgz' : '.gz,.tar.gz,.tgz',
+			'accept': isGeo ? '.dat,.srs,.gz,.tar,.tar.gz,.tgz' : '.gz,.tar.gz,.tgz',
 			'style': 'margin:10px 0'
 		});
+
+		var hint;
+		if (isGeoMihomo) {
+			hint = _('For mihomo only. Install to /etc/tomfly/geodata/: geoip.dat + geosite.dat. Source: Loyalsoldier/v2ray-rules-dat releases.');
+		} else if (isGeoSingbox) {
+			hint = _('For sing-box only. Install to /etc/tomfly/geodata/: geoip-cn.srs + geosite-cn.srs. Download from SagerNet/sing-geoip and sing-geosite (jsDelivr links in README).');
+		} else if (isGeo) {
+			hint = _('Mixed upload — pick the file type below.');
+		} else {
+			hint = _('Select the compressed kernel binary (.gz or .tar.gz)');
+		}
+
 		ui.showModal(_('Upload ') + target, [
-			E('p', { 'class': 'tomfly-muted' }, isGeo
-				? _('Upload Loyalsoldier/v2ray-rules-dat release files for mihomo GeoIP/GeoSite rules.')
-				: _('Select the compressed kernel binary (.gz or .tar.gz)')),
-			isGeo ? kindSelect : '',
+			E('p', { 'class': 'tomfly-muted' }, hint),
+			isGeoSingbox ? E('p', { 'class': 'tomfly-kernel-note' }, [
+				E('strong', {}, 'geoip-cn.srs: '),
+				'https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs',
+				E('br'),
+				E('strong', {}, 'geosite-cn.srs: '),
+				'https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs'
+			]) : '',
+			kindSelect,
 			fileInput,
 			E('div', { 'class': 'right', 'style': 'margin-top:14px' }, [
-				E('button', {
-					'class': 'cbi-button',
-					'click': ui.hideModal
-				}, _('Cancel')),
+				E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
 				' ',
 				E('button', {
 					'class': 'cbi-button cbi-button-save important',

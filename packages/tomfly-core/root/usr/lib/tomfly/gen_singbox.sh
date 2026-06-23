@@ -160,6 +160,28 @@ _emit_force_rules() {
     done < "$file"
 }
 
+# Prefer local .srs under GEODATA_DIR; fall back to remote CDN (router must reach it).
+_emit_singbox_rule_set() {
+    local tag="$1" url="$2"
+    local path="${GEODATA_DIR}/${tag}.srs"
+    if [ -f "$path" ]; then
+        printf '      {\n'
+        printf '        "tag": %s,\n' "$(json_str "$tag")"
+        printf '        "type": "local",\n'
+        printf '        "format": "binary",\n'
+        printf '        "path": %s\n' "$(json_str "$path")"
+        printf '      }'
+    else
+        printf '      {\n'
+        printf '        "tag": %s,\n' "$(json_str "$tag")"
+        printf '        "type": "remote",\n'
+        printf '        "format": "binary",\n'
+        printf '        "url": %s,\n' "$(json_str "$url")"
+        printf '        "update_interval": "24h"\n'
+        printf '      }'
+    fi
+}
+
 generate_singbox_config() {
     local loglevel=$(_u "global.log_level"); loglevel="${loglevel:-info}"
     local dns_mode=$(_u "dns.mode"); dns_mode="${dns_mode:-fake-ip}"
@@ -267,20 +289,12 @@ generate_singbox_config() {
     printf '      {"rule_set": "geosite-cn", "outbound": %s}\n' "$(json_str "$geosite_cn")"
     printf '    ],\n'
     printf '    "rule_set": [\n'
-    printf '      {\n'
-    printf '        "tag": "geoip-cn",\n'
-    printf '        "type": "remote",\n'
-    printf '        "format": "binary",\n'
-    printf '        "url": "https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs",\n'
-    printf '        "update_interval": "24h"\n'
-    printf '      },\n'
-    printf '      {\n'
-    printf '        "tag": "geosite-cn",\n'
-    printf '        "type": "remote",\n'
-    printf '        "format": "binary",\n'
-    printf '        "url": "https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",\n'
-    printf '        "update_interval": "24h"\n'
-    printf '      }\n'
+    _emit_singbox_rule_set "geoip-cn" \
+        "https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs"
+    printf ',\n'
+    _emit_singbox_rule_set "geosite-cn" \
+        "https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs"
+    printf '\n'
     printf '    ],\n'
     printf '    "final": %s,\n' "$(json_str "$default_policy")"
     printf '    "auto_detect_interface": true\n'
