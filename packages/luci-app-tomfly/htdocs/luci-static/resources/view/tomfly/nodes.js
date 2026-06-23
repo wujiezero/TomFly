@@ -3,6 +3,7 @@
 'require ui';
 'require dom';
 'require tomfly.api as api';
+'require tomfly.kernel-profile as kprof';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -67,16 +68,32 @@ return view.extend({
 
 	render: function (r) {
 		var nodes = (r && r.nodes) || [];
-		return E('div', { 'class': 'tomfly' }, [
+		var kernel = (r && r.kernel) || 'mihomo';
+		var kp = kprof.profile(kernel);
+		var banners = [];
+
+		if (!kp.nodeTestAccurate) {
+			banners.push(E('div', { 'class': 'tomfly-kernel-banner warn' }, [
+				E('strong', {}, _('sing-box: ')),
+				_('Node latency test uses TCP connect fallback and may be inaccurate under TUN. ' +
+					'Use Access Check on Overview for real connectivity.')
+			]));
+		}
+
+		return E('div', { 'class': 'tomfly' }, banners.concat([
 			E('div', { 'class': 'tomfly-row', 'style': 'margin-bottom:14px' }, [
-				E('h3', { 'style': 'margin:0' }, _('Proxy Nodes')),
+				E('h3', { 'style': 'margin:0' }, [
+					_('Proxy Nodes'),
+					' ',
+					kprof.badge(kernel)
+				]),
 				E('div', { 'class': 'tomfly-actions' }, [
 					E('button', { 'class': 'cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleTestAll') }, _('Test All')),
 					E('button', { 'class': 'cbi-button cbi-button-add important', 'click': ui.createHandlerFn(this, 'handleAddDialog') }, _('Add Node'))
 				])
 			]),
 			E('div', { 'id': 'tomfly-node-list' }, this.renderList(nodes))
-		]);
+		]));
 	},
 
 	handleAddDialog: function () {

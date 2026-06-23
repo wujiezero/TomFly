@@ -429,8 +429,17 @@ function setMode(p) {
 		cmds.push(['set', CONF + '.dns.mode=' + p.dns_mode]);
 	}
 	if (p.tun !== undefined) {
-		cmds.push(['set', CONF + '.global=global']);
-		cmds.push(['set', CONF + '.global.tun=' + (p.tun ? '1' : '0')]);
+		return loadConf().then(function () {
+			var kernel = uci.get(CONF, 'global', 'kernel') || 'mihomo';
+			var allCmds = cmds.slice();
+			if (kernel !== 'singbox') {
+				allCmds.push(['set', CONF + '.global=global']);
+				allCmds.push(['set', CONF + '.global.tun=' + (p.tun ? '1' : '0')]);
+			}
+			if (allCmds.length === 0) return Promise.resolve({ ok: true });
+			allCmds.push(['commit', CONF]);
+			return uciBatch(allCmds);
+		}).then(refresh).then(function () { return { ok: true }; });
 	}
 	if (cmds.length === 0) return Promise.resolve({ ok: true });
 	cmds.push(['commit', CONF]);

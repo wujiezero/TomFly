@@ -37,6 +37,8 @@ define Package/luci-app-tomfly/install
 
   $(INSTALL_DATA) ./htdocs/luci-static/resources/tomfly/api.js \
 	$(1)/www/luci-static/resources/tomfly/
+  $(INSTALL_DATA) ./htdocs/luci-static/resources/tomfly/kernel-profile.js \
+	$(1)/www/luci-static/resources/tomfly/
   $(INSTALL_DATA) ./htdocs/luci-static/resources/view/tomfly/style.css \
 	$(1)/www/luci-static/resources/view/tomfly/
   for v in overview nodes groups rules dns kernel log; do \

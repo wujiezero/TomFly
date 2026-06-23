@@ -3,6 +3,7 @@
 'require ui';
 'require request';
 'require tomfly.api as api';
+'require tomfly.kernel-profile as kprof';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -61,13 +62,36 @@ return view.extend({
 		var g = data[0] || {}, k = data[1] || {};
 		var mihomo = k.mihomo || {}, singbox = k.singbox || {}, geo = k.geodata || {};
 		var geoOk = (geo.geoip === 'yes' && geo.geosite === 'yes');
+		var kernel = g.kernel || 'mihomo';
+
+		var kernelSelect = select('k-kernel', kernel, [
+			['mihomo', 'mihomo ' + _('(recommended)')], ['singbox', 'sing-box']
+		]);
+		var kernelNote = E('div', { 'class': 'tomfly-kernel-note', 'id': 'k-kernel-note' });
+		var updateKernelNote = function () {
+			var sel = document.getElementById('k-kernel');
+			var kp = kprof.profile((sel && sel.value) || kernel);
+			if (kp.tunAlwaysOn) {
+				kernelNote.textContent = _(
+					'sing-box always uses TUN (interface TomFly) for traffic capture. ' +
+					'mihomo can switch between TPROXY and TUN on the Overview page.');
+			} else {
+				kernelNote.textContent = _(
+					'mihomo defaults to TPROXY; enable TUN on the Overview page if you prefer kernel-managed routing. ' +
+					'sing-box only supports TUN mode.');
+			}
+		};
+		kernelSelect.addEventListener('change', updateKernelNote);
+		window.setTimeout(updateKernelNote, 0);
 
 		return E('div', { 'class': 'tomfly' }, [
 			E('div', { 'class': 'tomfly-card' }, [
-				E('div', { 'class': 'tomfly-card-title' }, _('Global Settings')),
-				row(_('Active Kernel'), select('k-kernel', g.kernel || 'mihomo', [
-					['mihomo', 'mihomo ' + _('(recommended)')], ['singbox', 'sing-box']
-				])),
+				E('div', { 'class': 'tomfly-card-title' }, [
+					_('Global Settings'),
+					' ',
+					kprof.badge(kernel)
+				]),
+				row(_('Active Kernel'), E('div', {}, [kernelSelect, kernelNote])),
 				row(_('Proxy Mode'), select('k-mode', g.mode || 'rule', [
 					['rule', _('Rule')], ['global', _('Global')], ['direct', _('Direct')]
 				])),

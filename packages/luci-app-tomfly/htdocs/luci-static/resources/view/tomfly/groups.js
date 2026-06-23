@@ -3,6 +3,7 @@
 'require ui';
 'require dom';
 'require tomfly.api as api';
+'require tomfly.kernel-profile as kprof';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -18,7 +19,8 @@ return view.extend({
 	load: function () {
 		return Promise.all([
 			L.resolveDefault(api.call('get_groups'), { groups: [] }),
-			L.resolveDefault(api.call('get_nodes'), { nodes: [] })
+			L.resolveDefault(api.call('get_nodes'), { nodes: [] }),
+			L.resolveDefault(api.call('get_global'), {})
 		]);
 	},
 
@@ -87,11 +89,21 @@ return view.extend({
 	render: function (data) {
 		this.groups = ((data[0] || {}).groups) || [];
 		this.nodeNames = (((data[1] || {}).nodes) || []).map(function (n) { return n.name; }).filter(Boolean);
+		var kernel = (data[2] || {}).kernel || 'mihomo';
 		var self = this;
 
 		return E('div', { 'class': 'tomfly' }, [
+			E('div', { 'class': 'tomfly-kernel-banner warn' }, [
+				E('strong', {}, kprof.profile(kernel).label + ': '),
+				_('Custom groups on this page are saved to UCI but not yet applied to the running config. ' +
+					'Both kernels auto-generate AUTO (url-test) and PROXY (selector) groups.')
+			]),
 			E('div', { 'class': 'tomfly-row', 'style': 'margin-bottom:14px' }, [
-				E('h3', { 'style': 'margin:0' }, _('Proxy Groups')),
+				E('h3', { 'style': 'margin:0' }, [
+					_('Proxy Groups'),
+					' ',
+					kprof.badge(kernel)
+				]),
 				E('button', {
 					'class': 'cbi-button cbi-button-add important',
 					'click': function () {

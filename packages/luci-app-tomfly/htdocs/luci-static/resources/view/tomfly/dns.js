@@ -2,6 +2,7 @@
 'require view';
 'require ui';
 'require tomfly.api as api';
+'require tomfly.kernel-profile as kprof';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -30,14 +31,32 @@ function select(id, value, opts) {
 
 return view.extend({
 	load: function () {
-		return L.resolveDefault(api.call('get_dns'), {});
+		return Promise.all([
+			L.resolveDefault(api.call('get_dns'), {}),
+			L.resolveDefault(api.call('get_global'), {})
+		]);
 	},
 
-	render: function (d) {
-		d = d || {};
-		return E('div', { 'class': 'tomfly' }, [
+	render: function (data) {
+		var d = data[0] || {};
+		var kernel = (data[1] || {}).kernel || 'mihomo';
+		var kp = kprof.profile(kernel);
+		var banners = [];
+
+		if (kp.dnsFirstOnly) {
+			banners.push(E('div', { 'class': 'tomfly-kernel-banner warn' }, [
+				E('strong', {}, _('sing-box: ')),
+				_('Only the first domestic and foreign DNS server in each list is written to config.')
+			]));
+		}
+
+		return E('div', { 'class': 'tomfly' }, banners.concat([
 			E('div', { 'class': 'tomfly-card' }, [
-				E('div', { 'class': 'tomfly-card-title' }, _('DNS Settings')),
+				E('div', { 'class': 'tomfly-card-title' }, [
+					_('DNS Settings'),
+					' ',
+					kprof.badge(kernel)
+				]),
 				row(_('DNS Mode'),
 					select('k-dns-mode', d.mode || 'fake-ip', [
 						['fake-ip', _('Fake-IP (recommended, anti-pollution)')],
@@ -57,7 +76,7 @@ return view.extend({
 			E('div', { 'class': 'cbi-page-actions' }, [
 				E('button', { 'class': 'cbi-button cbi-button-save important', 'click': ui.createHandlerFn(this, 'handleSaveDns') }, _('Save'))
 			])
-		]);
+		]));
 	},
 
 	handleSaveDns: function () {

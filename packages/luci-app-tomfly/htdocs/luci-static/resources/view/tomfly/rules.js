@@ -2,6 +2,7 @@
 'require view';
 'require ui';
 'require tomfly.api as api';
+'require tomfly.kernel-profile as kprof';
 
 document.querySelector('head').appendChild(E('link', {
 	'rel': 'stylesheet', 'type': 'text/css',
@@ -32,12 +33,28 @@ function policy(id, value) {
 
 return view.extend({
 	load: function () {
-		return L.resolveDefault(api.call('get_rules'), {});
+		return Promise.all([
+			L.resolveDefault(api.call('get_rules'), {}),
+			L.resolveDefault(api.call('get_global'), {})
+		]);
 	},
 
-	render: function (r) {
-		r = r || {};
+	render: function (data) {
+		var r = data[0] || {};
+		var kernel = (data[1] || {}).kernel || 'mihomo';
+		var kp = kprof.profile(kernel);
+		var geoBanner = kp.geoRemote
+			? E('div', { 'class': 'tomfly-kernel-banner' }, [
+				E('strong', {}, _('sing-box: ')),
+				_('GeoSite/GeoIP CN rules use remote rule-sets downloaded on first start (requires CDN access).')
+			])
+			: E('div', { 'class': 'tomfly-kernel-banner' }, [
+				E('strong', {}, _('mihomo: ')),
+				_('GeoSite/GeoIP CN rules use local geodata files under /etc/tomfly/geodata/.')
+			]);
+
 		return E('div', { 'class': 'tomfly' }, [
+			geoBanner,
 			E('div', { 'class': 'tomfly-grid-2' }, [
 				E('div', { 'class': 'tomfly-card' }, [
 					E('div', { 'class': 'tomfly-card-title' }, _('Routing Policy')),
