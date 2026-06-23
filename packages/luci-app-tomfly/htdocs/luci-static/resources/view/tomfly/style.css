@@ -7,29 +7,13 @@
 .tomfly {
 	animation: tomfly-fade .25s ease;
 	position: relative;
-	padding-top: 8px;
-	padding-right: 108px;
-	min-height: 100px;
 }
 @keyframes tomfly-fade {
 	from { opacity: 0; transform: translateY(6px); }
 	to   { opacity: 1; transform: none; }
 }
 
-/* ── Corner logo (100×100, top-right) ───────────────────── */
-.tomfly-logo-corner {
-	position: absolute;
-	top: 0;
-	right: 0;
-	width: 100px;
-	height: 100px;
-	max-width: 100px;
-	max-height: 100px;
-	object-fit: contain;
-	pointer-events: none;
-	opacity: .88;
-	z-index: 1;
-}
+/* Logo box: see tomfly/brand.js (injected + inline) */
 
 /* ── Layout ─────────────────────────────────────────────── */
 .tomfly-grid {
