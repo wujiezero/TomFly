@@ -350,9 +350,9 @@ _tf_fetch_script() {
     local relpath="$1" dest="$2" mode="${3:-755}" base url
     local tmp="${dest}.tomfly_tmp"
     for base in \
-        "https://cdn.jsdelivr.net/gh/${TOMFLY_REPO}@${TOMFLY_REF}" \
+        "https://ghfast.top/https://raw.githubusercontent.com/${TOMFLY_REPO}/${TOMFLY_REF}" \
         "https://raw.githubusercontent.com/${TOMFLY_REPO}/${TOMFLY_REF}" \
-        "https://ghfast.top/https://raw.githubusercontent.com/${TOMFLY_REPO}/${TOMFLY_REF}"
+        "https://cdn.jsdelivr.net/gh/${TOMFLY_REPO}@${TOMFLY_REF}"
     do
         url="${base}/${relpath}"
         progress "Trying ${url}"
