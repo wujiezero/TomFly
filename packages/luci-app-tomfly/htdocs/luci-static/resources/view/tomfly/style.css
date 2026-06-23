@@ -260,6 +260,31 @@
 	margin-bottom: 0;
 	min-width: 0;
 }
+.tomfly-core-bar { margin-bottom: 14px; }
+.tomfly-core-bar-row { align-items: center; }
+.tomfly-core-bar-main {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex: 1;
+	min-width: 0;
+}
+.tomfly-core-badge {
+	width: 40px;
+	height: 40px;
+	font-size: 18px;
+	margin-bottom: 0;
+	flex-shrink: 0;
+}
+.tomfly-core-bar-title {
+	font-weight: 700;
+	font-size: 15px;
+	line-height: 1.2;
+}
+.tomfly-core-bar-desc {
+	font-size: 12px;
+	margin-top: 2px;
+}
 .tomfly-kernel { text-align: center; }
 .tomfly-kernel-badge {
 	width: 52px; height: 52px; border-radius: 14px;

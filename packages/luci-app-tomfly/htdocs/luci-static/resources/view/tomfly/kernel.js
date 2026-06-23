@@ -40,6 +40,20 @@ function geoUpdateDone(target, geo) {
 	return false;
 }
 
+/* sing-box prefers local .srs; gen_singbox.sh falls back to remote CDN when absent */
+function srsMode(geo) {
+	geo = geo || {};
+	var ip = geo.srs_geoip === 'yes', site = geo.srs_geosite === 'yes';
+	if (ip && site) return 'local';
+	if (ip || site) return 'partial';
+	return 'remote';
+}
+function srsStatusText(mode) {
+	if (mode === 'local') return _('SRS rule-sets ready (local)');
+	if (mode === 'partial') return _('partial local — upload missing .srs for offline use');
+	return _('using remote CDN (no local .srs)');
+}
+
 return view.extend({
 	load: function () {
 		return Promise.all([
@@ -65,6 +79,25 @@ return view.extend({
 					'class': 'cbi-button cbi-button-action',
 					'click': ui.createHandlerFn(this, 'handleUpload', target)
 				}, _('Upload'))
+			])
+		]);
+	},
+
+	coreCard: function () {
+		return E('div', { 'class': 'tomfly-card tomfly-core-bar' }, [
+			E('div', { 'class': 'tomfly-row tomfly-core-bar-row' }, [
+				E('div', { 'class': 'tomfly-core-bar-main' }, [
+					E('div', { 'class': 'tomfly-kernel-badge tomfly-ic-indigo tomfly-core-badge' }, 'T'),
+					E('div', {}, [
+						E('div', { 'class': 'tomfly-core-bar-title' }, 'TomFly'),
+						E('div', { 'class': 'tomfly-muted tomfly-core-bar-desc' },
+							_('Core scripts, LuCI UI & updater'))
+					])
+				]),
+				E('button', {
+					'class': 'cbi-button cbi-button-action important',
+					'click': ui.createHandlerFn(this, 'handleUpdate', 'core')
+				}, _('Update online'))
 			])
 		]);
 	},
@@ -105,7 +138,8 @@ return view.extend({
 		var g = data[0] || {}, k = data[1] || {};
 		var mihomo = k.mihomo || {}, singbox = k.singbox || {}, geo = k.geodata || {};
 		var geoDatOk = (geo.geoip === 'yes' && geo.geosite === 'yes');
-		var geoSrsOk = (geo.srs_geoip === 'yes' && geo.srs_geosite === 'yes');
+		var srsModeVal = srsMode(geo);
+		var geoSrsOk = (srsModeVal === 'local' || srsModeVal === 'remote' || srsModeVal === 'partial');
 		var kernel = g.kernel || 'mihomo';
 
 		var kernelSelect = select('k-kernel', kernel, [
@@ -152,6 +186,7 @@ return view.extend({
 					])
 				])
 			]),
+			this.coreCard(),
 			E('div', { 'class': 'tomfly-kernel-section-head' }, [
 				E('span', { 'class': 'tomfly-card-title tomfly-kernel-section-label' }, _('Kernels')),
 				E('span', { 'class': 'tomfly-card-title tomfly-kernel-section-label' }, _('Geo Rules / GeoData')),
@@ -171,7 +206,7 @@ return view.extend({
 					{ name: 'geoip-cn.srs', desc: _('GeoIP CN (local rule-set)') },
 					{ name: 'geosite-cn.srs', desc: _('GeoSite CN (local rule-set)') }
 				], geo.version, geoSrsOk, 'geodata_singbox',
-					geoSrsOk ? _('SRS rule-sets ready') : _('missing geoip-cn.srs / geosite-cn.srs'))
+					srsStatusText(srsModeVal))
 			])
 		]);
 	},
@@ -193,8 +228,9 @@ return view.extend({
 	},
 
 	handleUpdate: function (target) {
+		var label = target === 'core' ? 'TomFly' : target;
 		return api.call('update_kernel', { target: target }).then(function () {
-			ui.showModal(_('Updating ') + target, [
+			ui.showModal(_('Updating ') + label, [
 				E('p', { 'class': 'spinning' }, _('Downloading and installing — this may take a minute…'))
 			]);
 			var attempts = 0;
@@ -206,6 +242,24 @@ return view.extend({
 					ui.addNotification(null, E('p', _('Update timed out — check the Logs tab')), 'warning');
 					return;
 				}
+				if (target === 'core') {
+					L.resolveDefault(api.call('get_logs', { lines: 80 }), {}).then(function (r) {
+						var text = (r.lines || []).join('\n');
+						if (/core update incomplete/i.test(text)) {
+							window.clearInterval(poll);
+							ui.hideModal();
+							ui.addNotification(null, E('p', _('TomFly update failed — check the Logs tab')), 'danger');
+							return;
+						}
+						if (/TomFly core updated/i.test(text)) {
+							window.clearInterval(poll);
+							ui.hideModal();
+							notify(E('p', _('TomFly updated successfully — reload the page')), 5000);
+							window.location.reload();
+						}
+					});
+					return;
+				}
 				L.resolveDefault(api.call('get_kernels'), {}).then(function (k) {
 					var geo = k.geodata || {};
 					var info = k[target] || k[target === 'singbox' ? 'singbox' : target] || {};
@@ -215,7 +269,7 @@ return view.extend({
 					if (done) {
 						window.clearInterval(poll);
 						ui.hideModal();
-						notify(E('p', target + ' ' + _('updated successfully')), 4000);
+						notify(E('p', label + ' ' + _('updated successfully')), 4000);
 						window.location.reload();
 					}
 				});

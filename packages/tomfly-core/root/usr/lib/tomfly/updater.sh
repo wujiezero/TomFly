@@ -368,8 +368,12 @@ _tf_fetch_script() {
 }
 
 update_core() {
-    local ok=0 fail=0
-    progress "Updating TomFly core scripts (ref: ${TOMFLY_REF})..."
+    local ok=0 fail=0 v
+    local res="packages/luci-app-tomfly/htdocs/luci-static/resources"
+
+    progress "Updating TomFly core (ref: ${TOMFLY_REF})..."
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/updater.sh" "/usr/lib/tomfly/updater.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/uri_parser.sh" "/usr/lib/tomfly/uri_parser.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
     _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/gen_singbox.sh" "/usr/lib/tomfly/gen_singbox.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
     _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/gen_mihomo.sh" "/usr/lib/tomfly/gen_mihomo.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
     _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/common.sh" "/usr/lib/tomfly/common.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
@@ -377,10 +381,24 @@ update_core() {
     _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/nftables.sh" "/usr/lib/tomfly/nftables.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
     _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/dns.sh" "/usr/lib/tomfly/dns.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
     _tf_fetch_script "packages/tomfly-core/root/usr/bin/tomfly" "/usr/bin/tomfly" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+
+    progress "Updating TomFly LuCI UI..."
+    mkdir -p /www/luci-static/resources/tomfly /www/luci-static/resources/view/tomfly
+    _tf_fetch_script "${res}/tomfly/api.js" "/www/luci-static/resources/tomfly/api.js" 644 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "${res}/tomfly/kernel-profile.js" "/www/luci-static/resources/tomfly/kernel-profile.js" 644 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "${res}/view/tomfly/style.css" "/www/luci-static/resources/view/tomfly/style.css" 644 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "${res}/view/tomfly/logo.png" "/www/luci-static/resources/view/tomfly/logo.png" 644 && ok=$((ok + 1)) || fail=$((fail + 1))
+    for v in overview nodes groups rules dns kernel log; do
+        _tf_fetch_script "${res}/view/tomfly/${v}.js" "/www/luci-static/resources/view/tomfly/${v}.js" 644 && ok=$((ok + 1)) || fail=$((fail + 1))
+    done
+
+    rm -rf /tmp/luci-modulecache /tmp/luci-indexcache* 2>/dev/null
+    log_info "LuCI cache cleared"
+
     if [ "$fail" -gt 0 ]; then
         log_error "core update incomplete (${ok} ok, ${fail} failed)"
         return 1
     fi
-    log_info "core scripts updated (${ok} files)"
+    log_info "TomFly core updated (${ok} files)"
     return 0
 }
