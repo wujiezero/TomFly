@@ -1,4 +1,4 @@
-# KannoProxy
+# TomFly
 
 A clean, native-LuCI transparent proxy plugin for ImmortalWrt 25.12.0+ / OpenWrt 22.03+,
 powered by [mihomo](https://github.com/MetaCubeX/mihomo) and [sing-box](https://github.com/SagerNet/sing-box).
@@ -7,7 +7,7 @@ powered by [mihomo](https://github.com/MetaCubeX/mihomo) and [sing-box](https://
 
 ## Features
 
-- **Native LuCI UI** — pure JS views rendered as top tabs under *Services → KannoProxy*, matches the router theme (light/dark)
+- **Native LuCI UI** — pure JS views rendered as top tabs under *Services → TomFly*, matches the router theme (light/dark)
 - **Multiple protocols** — VLESS+Reality, VMess, Trojan, Shadowsocks (incl. 2022), Hysteria2, TUIC v5, AnyTLS
 - **One-line import** — paste any `vless://` / `vmess://` / `ss://` / `hy2://` / `tuic://` / `anytls://` … URI
 - **Kernel-aware** — a capability matrix skips nodes the active kernel can't run (e.g. mihomo + anytls-reality), and the config is validated before each (re)start so one bad node can't take the service down
@@ -19,20 +19,20 @@ powered by [mihomo](https://github.com/MetaCubeX/mihomo) and [sing-box](https://
 ## One-click Install
 
 ```sh
-curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/kanno-proxy@main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/TomFly@main/install.sh | sh
 ```
 
 It installs dependencies (`nftables`, `kmod-nft-tproxy`, `kmod-tun`, `ip-full`, `rpcd-mod-file`, …),
 deploys the scripts + web UI, and optionally downloads the mihomo kernel and GeoData.
 
-After install, open: **`http://<router-ip>/cgi-bin/luci/admin/services/kanno`**
+After install, open: **`http://<router-ip>/cgi-bin/luci/admin/services/tomfly`**
 
-To remove it: `curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/kanno-proxy@main/uninstall.sh | sh`
+To remove it: `curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/TomFly@main/uninstall.sh | sh`
 (add `PURGE=1` to also delete saved nodes, kernels, geodata and logs).
 
 ## Kernel & GeoData downloads (manual install / offline)
 
-`kanno update mihomo|singbox|geodata|all` (or the **Kernel** tab) fetches everything automatically and
+`tomfly update mihomo|singbox|geodata|all` (or the **Kernel** tab) fetches everything automatically and
 picks the right architecture for you. If your router has no GitHub access, download the files on another
 machine and drop them in via the Kernel tab's **upload** button, or `scp` them to the paths below.
 
@@ -79,7 +79,7 @@ install -m755 sing-box-*/sing-box /usr/bin/sing-box
 Download `geoip.dat` and `geosite.dat`, then:
 
 ```sh
-cp geoip.dat geosite.dat /etc/kanno/geodata/
+cp geoip.dat geosite.dat /etc/tomfly/geodata/
 ```
 
 Behind the GFW, prefer the jsDelivr mirror, e.g.
@@ -105,10 +105,10 @@ Behind the GFW, prefer the jsDelivr mirror, e.g.
 Both transparently proxy the router **and** every LAN device that uses it as gateway — they are just two
 mechanisms, and only one runs at a time:
 
-- **TPROXY** (default): kanno's `nftables` redirects traffic to the kernel's tproxy port. Battle-tested.
-- **TUN**: the kernel creates a `tun` device and owns routing via `auto-route` + `auto-redirect`; kanno's
+- **TPROXY** (default): tomfly's `nftables` redirects traffic to the kernel's tproxy port. Battle-tested.
+- **TUN**: the kernel creates a `tun` device and owns routing via `auto-route` + `auto-redirect`; tomfly's
   nftables/policy-routing step is skipped. Requires `kmod-tun`. If the TUN interface fails to come up
-  (e.g. a virtualized host without `/dev/net/tun`), kanno automatically falls back to TPROXY.
+  (e.g. a virtualized host without `/dev/net/tun`), tomfly automatically falls back to TPROXY.
 
 sing-box is always TUN. Toggle TUN for mihomo in *Overview → Quick Settings*.
 
@@ -120,26 +120,26 @@ sing-box is always TUN. Toggle TUN for mihomo in *Overview → Quick Settings*.
 ## CLI Usage
 
 ```sh
-kanno add "vless://uuid@host:port?security=reality&..."   # add a node
-kanno list                                                # list nodes
-kanno test <node-id>                                      # test connectivity
-kanno start | stop | restart | status                     # service control
-kanno update mihomo | singbox | geodata | all             # online update
+tomfly add "vless://uuid@host:port?security=reality&..."   # add a node
+tomfly list                                                # list nodes
+tomfly test <node-id>                                      # test connectivity
+tomfly start | stop | restart | status                     # service control
+tomfly update mihomo | singbox | geodata | all             # online update
 ```
 
 ## Package Structure
 
 ```
 packages/
-├── kanno-core/        # core shell scripts + init.d service
-├── luci-app-kanno/    # native LuCI JS views + rpcd ACL
-└── kanno-geodata/     # default rule files
+├── tomfly-core/        # core shell scripts + init.d service
+├── luci-app-tomfly/    # native LuCI JS views + rpcd ACL
+└── tomfly-geodata/     # default rule files
 ```
 
 ## Architecture
 
 ```
-Native LuCI JS views ──ubus(file.exec)/uci──> shell CLI (/usr/bin/kanno)
+Native LuCI JS views ──ubus(file.exec)/uci──> shell CLI (/usr/bin/tomfly)
                                                    │
                                        UCI config ←┘→ gen_mihomo / gen_singbox
                                                    │

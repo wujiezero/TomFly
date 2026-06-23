@@ -1,14 +1,14 @@
 #!/bin/sh
-# KannoProxy - One-click installer for ImmortalWrt / OpenWrt
-# Usage: curl -fsSL https://raw.githubusercontent.com/wujiezero/kanno-proxy/main/install.sh | sh
+# TomFly - One-click installer for ImmortalWrt / OpenWrt
+# Usage: curl -fsSL https://raw.githubusercontent.com/wujiezero/TomFly/main/install.sh | sh
 #        sh install.sh           # local run (interactive)
 #        SKIP_KERNEL=1 sh ...   # skip kernel download
 #        SKIP_GEO=1   sh ...    # skip geodata download
 #
 # Supports: ImmortalWrt 25.12.0+ (apk) and OpenWrt 22.03+ (opkg)
 
-REPO="https://cdn.jsdelivr.net/gh/wujiezero/kanno-proxy@main"
-KANNO_VER="0.1.0"
+REPO="https://cdn.jsdelivr.net/gh/wujiezero/TomFly@main"
+TOMFLY_VER="0.1.0"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 info()  { printf "${GREEN}[✓]${NC} %s\n" "$*"; }
@@ -97,15 +97,15 @@ install_pkg rpcd-mod-file
 # ── Step 2: Create directory structure ────────────────────────────────────────
 step "Creating directories..."
 # BusyBox ash does NOT support brace expansion — use one mkdir per path
-mkdir -p /usr/lib/kanno
-mkdir -p /etc/kanno/geodata
-mkdir -p /etc/kanno/rules
-mkdir -p /etc/kanno/mihomo
-mkdir -p /etc/kanno/singbox
+mkdir -p /usr/lib/tomfly
+mkdir -p /etc/tomfly/geodata
+mkdir -p /etc/tomfly/rules
+mkdir -p /etc/tomfly/mihomo
+mkdir -p /etc/tomfly/singbox
 mkdir -p /var/log
-mkdir -p /var/run/kanno
-mkdir -p /www/luci-static/resources/kanno
-mkdir -p /www/luci-static/resources/view/kanno
+mkdir -p /var/run/tomfly
+mkdir -p /www/luci-static/resources/tomfly
+mkdir -p /www/luci-static/resources/view/tomfly
 mkdir -p /usr/share/luci/menu.d
 mkdir -p /usr/share/rpcd/acl.d
 mkdir -p /etc/init.d
@@ -114,11 +114,11 @@ info "Directories ready"
 # ── Step 3: Download helper ────────────────────────────────────────────────────
 # Primary CDN: jsDelivr (clears cache on push)
 # Fallback CDN: raw.githubusercontent.com (may have up to 5min cache lag)
-REPO_FALLBACK="https://raw.githubusercontent.com/wujiezero/kanno-proxy/main"
+REPO_FALLBACK="https://raw.githubusercontent.com/wujiezero/TomFly/main"
 
 download() {
     local src="$1" dst="$2" mode="${3:-644}"
-    local tmpfile="${dst}.kanno_tmp"
+    local tmpfile="${dst}.tomfly_tmp"
     # Try primary CDN
     if curl -fsSL --max-time 60 -o "$tmpfile" "${REPO}/${src}" 2>/dev/null; then
         mv "$tmpfile" "$dst"
@@ -144,61 +144,61 @@ download_critical() {
 
 # ── Step 4: Download core scripts ─────────────────────────────────────────────
 step "Downloading core scripts..."
-CORE="packages/kanno-core/root"
+CORE="packages/tomfly-core/root"
 
-download_critical "$CORE/usr/lib/kanno/common.sh"       /usr/lib/kanno/common.sh       755
-download_critical "$CORE/usr/lib/kanno/capabilities.sh" /usr/lib/kanno/capabilities.sh 755
-download_critical "$CORE/usr/lib/kanno/uri_parser.sh"   /usr/lib/kanno/uri_parser.sh   755
-download_critical "$CORE/usr/lib/kanno/gen_mihomo.sh"  /usr/lib/kanno/gen_mihomo.sh  755
-download_critical "$CORE/usr/lib/kanno/gen_singbox.sh" /usr/lib/kanno/gen_singbox.sh 755
-download_critical "$CORE/usr/lib/kanno/nftables.sh"    /usr/lib/kanno/nftables.sh    755
-download_critical "$CORE/usr/lib/kanno/dns.sh"         /usr/lib/kanno/dns.sh         755
-download_critical "$CORE/usr/lib/kanno/updater.sh"     /usr/lib/kanno/updater.sh     755
-download_critical "$CORE/usr/bin/kanno"                /usr/bin/kanno                755
-download_critical "$CORE/etc/init.d/kanno"             /etc/init.d/kanno             755
+download_critical "$CORE/usr/lib/tomfly/common.sh"       /usr/lib/tomfly/common.sh       755
+download_critical "$CORE/usr/lib/tomfly/capabilities.sh" /usr/lib/tomfly/capabilities.sh 755
+download_critical "$CORE/usr/lib/tomfly/uri_parser.sh"   /usr/lib/tomfly/uri_parser.sh   755
+download_critical "$CORE/usr/lib/tomfly/gen_mihomo.sh"  /usr/lib/tomfly/gen_mihomo.sh  755
+download_critical "$CORE/usr/lib/tomfly/gen_singbox.sh" /usr/lib/tomfly/gen_singbox.sh 755
+download_critical "$CORE/usr/lib/tomfly/nftables.sh"    /usr/lib/tomfly/nftables.sh    755
+download_critical "$CORE/usr/lib/tomfly/dns.sh"         /usr/lib/tomfly/dns.sh         755
+download_critical "$CORE/usr/lib/tomfly/updater.sh"     /usr/lib/tomfly/updater.sh     755
+download_critical "$CORE/usr/bin/tomfly"                /usr/bin/tomfly                755
+download_critical "$CORE/etc/init.d/tomfly"             /etc/init.d/tomfly             755
 
 # Verify the main binary is actually executable
-[ -x /usr/bin/kanno ] || error "/usr/bin/kanno was downloaded but is not executable"
+[ -x /usr/bin/tomfly ] || error "/usr/bin/tomfly was downloaded but is not executable"
 
 # Rule files (skip if already customized)
-[ -f /etc/kanno/rules/force_proxy.txt ] || \
-    download "packages/kanno-geodata/root/etc/kanno/rules/force_proxy.txt" \
-             /etc/kanno/rules/force_proxy.txt
-[ -f /etc/kanno/rules/force_direct.txt ] || \
-    download "packages/kanno-geodata/root/etc/kanno/rules/force_direct.txt" \
-             /etc/kanno/rules/force_direct.txt
+[ -f /etc/tomfly/rules/force_proxy.txt ] || \
+    download "packages/tomfly-geodata/root/etc/tomfly/rules/force_proxy.txt" \
+             /etc/tomfly/rules/force_proxy.txt
+[ -f /etc/tomfly/rules/force_direct.txt ] || \
+    download "packages/tomfly-geodata/root/etc/tomfly/rules/force_direct.txt" \
+             /etc/tomfly/rules/force_direct.txt
 
 info "Core scripts installed"
 
 # ── Step 5: Download Web UI (native LuCI JS views) ────────────────────────────
 step "Downloading Web UI..."
-RES="packages/luci-app-kanno/htdocs/luci-static/resources"
+RES="packages/luci-app-tomfly/htdocs/luci-static/resources"
 
 # Shared backend client + stylesheet
-download "$RES/kanno/api.js"         /www/luci-static/resources/kanno/api.js
-download "$RES/view/kanno/style.css" /www/luci-static/resources/view/kanno/style.css
+download "$RES/tomfly/api.js"         /www/luci-static/resources/tomfly/api.js
+download "$RES/view/tomfly/style.css" /www/luci-static/resources/view/tomfly/style.css
 
-# Tab views (rendered as native LuCI top tabs under Services → KannoProxy)
+# Tab views (rendered as native LuCI top tabs under Services → TomFly)
 for v in overview nodes groups rules dns kernel log; do
-    download "$RES/view/kanno/$v.js" "/www/luci-static/resources/view/kanno/$v.js"
+    download "$RES/view/tomfly/$v.js" "/www/luci-static/resources/view/tomfly/$v.js"
 done
 info "Web UI installed"
 
 # ── Step 6: LuCI menu integration ────────────────────────────────────────────
 step "Installing LuCI integration..."
-# LuCI menu entry (registers the KannoProxy tabs under Services)
-download "packages/luci-app-kanno/root/usr/share/luci/menu.d/luci-app-kanno.json" \
-    /usr/share/luci/menu.d/luci-app-kanno.json
+# LuCI menu entry (registers the TomFly tabs under Services)
+download "packages/luci-app-tomfly/root/usr/share/luci/menu.d/luci-app-tomfly.json" \
+    /usr/share/luci/menu.d/luci-app-tomfly.json
 # rpcd ACL (grants the LuCI session the uci + fs.exec access the views need)
-download "packages/luci-app-kanno/root/usr/share/rpcd/acl.d/luci-app-kanno.json" \
-    /usr/share/rpcd/acl.d/luci-app-kanno.json
+download "packages/luci-app-tomfly/root/usr/share/rpcd/acl.d/luci-app-tomfly.json" \
+    /usr/share/rpcd/acl.d/luci-app-tomfly.json
 
 # Remove leftovers from the old iframe/Alpine SPA and the dead Lua/CGI backend.
 # ImmortalWrt 25.12 ships JS-only LuCI (no Lua), so the views now talk to the
 # system directly via uci + fs.exec — no CGI required.
-rm -rf /www/luci-static/kanno 2>/dev/null
-rm -f  /www/luci-static/resources/view/kanno/main.js 2>/dev/null
-rm -f  /www/cgi-bin/kanno /usr/lib/lua/luci/rpc/kanno.lua 2>/dev/null
+rm -rf /www/luci-static/tomfly 2>/dev/null
+rm -f  /www/luci-static/resources/view/tomfly/main.js 2>/dev/null
+rm -f  /www/cgi-bin/tomfly /usr/lib/lua/luci/rpc/tomfly.lua 2>/dev/null
 
 # Drop LuCI's cached menu/module index so the new tabs appear immediately
 rm -f /tmp/luci-indexcache /tmp/luci-indexcache.* 2>/dev/null
@@ -208,8 +208,8 @@ info "LuCI integration installed"
 
 # ── Step 7: UCI default config ───────────────────────────────────────────────
 step "Setting up UCI configuration..."
-if ! uci -q get kanno.global >/dev/null 2>&1; then
-    download "packages/kanno-core/root/etc/config/kanno" /etc/config/kanno
+if ! uci -q get tomfly.global >/dev/null 2>&1; then
+    download "packages/tomfly-core/root/etc/config/tomfly" /etc/config/tomfly
     info "Default config installed"
 else
     info "Existing config preserved"
@@ -223,14 +223,14 @@ step "Configuring web access..."
 if [ -f /etc/config/uhttpd ]; then
     # Check if there's an http_nterface 80 listening
     ROUTER_IP=$(uci -q get network.lan.ipaddr 2>/dev/null || echo "192.168.1.1")
-    info "uhttpd is configured — UI is at http://${ROUTER_IP}/cgi-bin/luci/admin/services/kanno"
+    info "uhttpd is configured — UI is at http://${ROUTER_IP}/cgi-bin/luci/admin/services/tomfly"
 else
     warn "uhttpd config not found, UI may need manual setup"
 fi
 
 # ── Step 9: Enable service ────────────────────────────────────────────────────
-step "Enabling KannoProxy service..."
-if [ -f /etc/rc.d/S99kanno ] || /etc/init.d/kanno enable 2>/dev/null; then
+step "Enabling TomFly service..."
+if [ -f /etc/rc.d/S99tomfly ] || /etc/init.d/tomfly enable 2>/dev/null; then
     info "Service enabled (auto-start on boot)"
 else
     warn "Could not enable service via init.d — may need manual setup"
@@ -241,13 +241,13 @@ if [ "${SKIP_KERNEL:-0}" = "1" ]; then
     warn "SKIP_KERNEL=1 — skipping kernel download"
 elif ask_yn "Download mihomo kernel now? (~15MB, recommended)" "Y"; then
     step "Downloading mihomo kernel..."
-    if /usr/bin/kanno update mihomo; then
+    if /usr/bin/tomfly update mihomo; then
         info "mihomo kernel ready"
     else
-        warn "Download failed — run later: kanno update mihomo"
+        warn "Download failed — run later: tomfly update mihomo"
     fi
 else
-    warn "Skipped. Run later: kanno update mihomo"
+    warn "Skipped. Run later: tomfly update mihomo"
 fi
 
 # ── Step 11: Download GeoData ─────────────────────────────────────────────────
@@ -255,13 +255,13 @@ if [ "${SKIP_GEO:-0}" = "1" ]; then
     warn "SKIP_GEO=1 — skipping GeoData download"
 elif ask_yn "Download GeoIP/GeoSite data? (~5MB)" "Y"; then
     step "Downloading GeoData..."
-    if /usr/bin/kanno update geodata; then
+    if /usr/bin/tomfly update geodata; then
         info "GeoData ready"
     else
-        warn "Download failed — run later: kanno update geodata"
+        warn "Download failed — run later: tomfly update geodata"
     fi
 else
-    warn "Skipped. Run later: kanno update geodata"
+    warn "Skipped. Run later: tomfly update geodata"
 fi
 
 # ── Step 12: Reload web services ─────────────────────────────────────────────
@@ -273,14 +273,14 @@ step "Reloading services..."
 ROUTER_IP=$(uci -q get network.lan.ipaddr 2>/dev/null || echo "192.168.1.1")
 
 printf "\n${GREEN}╔══════════════════════════════════════╗${NC}\n"
-printf "${GREEN}║  KannoProxy v%-6s  installed! ✓    ║${NC}\n" "$KANNO_VER"
+printf "${GREEN}║  TomFly v%-6s  installed! ✓    ║${NC}\n" "$TOMFLY_VER"
 printf "${GREEN}╚══════════════════════════════════════╝${NC}\n\n"
-printf "  Web UI   → ${CYAN}http://${ROUTER_IP}/cgi-bin/luci/admin/services/kanno${NC}\n"
-printf "  CLI help → ${CYAN}kanno${NC}\n\n"
+printf "  Web UI   → ${CYAN}http://${ROUTER_IP}/cgi-bin/luci/admin/services/tomfly${NC}\n"
+printf "  CLI help → ${CYAN}tomfly${NC}\n\n"
 printf "  Quick start:\n"
-printf "    kanno add 'vless://...'   # add a node\n"
-printf "    kanno start               # start proxy\n"
-printf "    kanno status              # check status\n"
-printf "    kanno update all          # update kernel + geodata\n\n"
+printf "    tomfly add 'vless://...'   # add a node\n"
+printf "    tomfly start               # start proxy\n"
+printf "    tomfly status              # check status\n"
+printf "    tomfly update all          # update kernel + geodata\n\n"
 printf "  If kernel/geodata were skipped, run:\n"
-printf "    ${CYAN}kanno update all${NC}\n\n"
+printf "    ${CYAN}tomfly update all${NC}\n\n"

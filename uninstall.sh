@@ -1,6 +1,6 @@
 #!/bin/sh
-# KannoProxy - Uninstaller for ImmortalWrt / OpenWrt
-# Usage: curl -fsSL https://raw.githubusercontent.com/wujiezero/kanno-proxy/main/uninstall.sh | sh
+# TomFly - Uninstaller for ImmortalWrt / OpenWrt
+# Usage: curl -fsSL https://raw.githubusercontent.com/wujiezero/TomFly/main/uninstall.sh | sh
 #        sh uninstall.sh           # local run (interactive)
 #        PURGE=1 sh uninstall.sh   # also delete saved nodes, kernels, geodata, logs
 #        KEEP=1  sh uninstall.sh   # force-keep all user data (no prompt)
@@ -32,7 +32,7 @@ ask_yn() {
 [ "$(id -u)" != "0" ] && error "Please run as root"
 [ -f /etc/openwrt_release ] || error "This script only runs on OpenWrt/ImmortalWrt"
 
-step "KannoProxy uninstaller"
+step "TomFly uninstaller"
 
 # Decide whether to purge user data
 PURGE_DATA=0
@@ -45,33 +45,33 @@ elif ask_yn "Also delete saved nodes, kernels, geodata and logs? (config is kept
 fi
 
 # ── Step 1: Stop the service (reverts nftables, routing, DNS, kills kernel) ────
-step "Stopping KannoProxy..."
-if [ -x /usr/bin/kanno ]; then
-    /usr/bin/kanno stop 2>/dev/null && info "Service stopped (firewall/routing/DNS reverted)" \
-        || warn "kanno stop reported an error — continuing cleanup"
+step "Stopping TomFly..."
+if [ -x /usr/bin/tomfly ]; then
+    /usr/bin/tomfly stop 2>/dev/null && info "Service stopped (firewall/routing/DNS reverted)" \
+        || warn "tomfly stop reported an error — continuing cleanup"
 else
-    warn "/usr/bin/kanno missing — cleaning up runtime state manually"
+    warn "/usr/bin/tomfly missing — cleaning up runtime state manually"
 fi
 
 # Kill any kernel left running and drop the nftables table / policy routing,
-# in case `kanno stop` was unavailable or incomplete.
+# in case `tomfly stop` was unavailable or incomplete.
 killall mihomo sing-box 2>/dev/null
 sleep 1
 killall -9 mihomo sing-box 2>/dev/null
-nft delete table inet kanno 2>/dev/null && info "nftables table removed"
+nft delete table inet tomfly 2>/dev/null && info "nftables table removed"
 # TUN data-plane leftovers (auto-redirect tables + virtual interfaces)
 nft delete table inet mihomo 2>/dev/null
 nft delete table inet sing-box 2>/dev/null
 ip link del Meta 2>/dev/null
-ip link del Kanno 2>/dev/null
+ip link del TomFly 2>/dev/null
 ip rule del fwmark 0x200 table 100 2>/dev/null
 ip route del local default dev lo table 100 2>/dev/null
 
 # ── Step 2: Revert dnsmasq DNS redirect (CRITICAL) ────────────────────────────
 # setup_dns() points dnsmasq at mihomo (127.0.0.1#1053) with noresolv. If we
-# remove kanno without reverting this, the router loses all DNS resolution.
+# remove tomfly without reverting this, the router loses all DNS resolution.
 step "Restoring dnsmasq DNS..."
-rm -f /tmp/dnsmasq.d/kanno.conf 2>/dev/null
+rm -f /tmp/dnsmasq.d/tomfly.conf 2>/dev/null
 if uci -q get dhcp.@dnsmasq[0] >/dev/null 2>&1; then
     uci -q del_list dhcp.@dnsmasq[0].server='127.0.0.1#1053' 2>/dev/null
     uci -q delete dhcp.@dnsmasq[0].noresolv 2>/dev/null
@@ -82,29 +82,29 @@ fi
 
 # ── Step 3: Disable + remove the init.d service ───────────────────────────────
 step "Removing service..."
-if [ -x /etc/init.d/kanno ]; then
-    /etc/init.d/kanno disable 2>/dev/null
+if [ -x /etc/init.d/tomfly ]; then
+    /etc/init.d/tomfly disable 2>/dev/null
 fi
-rm -f /etc/init.d/kanno /etc/rc.d/S99kanno /etc/rc.d/K10kanno 2>/dev/null
+rm -f /etc/init.d/tomfly /etc/rc.d/S99tomfly /etc/rc.d/K10tomfly 2>/dev/null
 info "Service removed"
 
 # ── Step 4: Remove program files + Web UI (always) ────────────────────────────
 step "Removing program files and Web UI..."
-rm -f  /usr/bin/kanno
-rm -rf /usr/lib/kanno
-rm -rf /www/luci-static/resources/kanno
-rm -rf /www/luci-static/resources/view/kanno
-rm -f  /usr/share/luci/menu.d/luci-app-kanno.json
-rm -f  /usr/share/rpcd/acl.d/luci-app-kanno.json
+rm -f  /usr/bin/tomfly
+rm -rf /usr/lib/tomfly
+rm -rf /www/luci-static/resources/tomfly
+rm -rf /www/luci-static/resources/view/tomfly
+rm -f  /usr/share/luci/menu.d/luci-app-tomfly.json
+rm -f  /usr/share/rpcd/acl.d/luci-app-tomfly.json
 # Legacy artifacts from older layouts
-rm -rf /www/luci-static/kanno 2>/dev/null
-rm -f  /www/cgi-bin/kanno /usr/lib/lua/luci/rpc/kanno.lua 2>/dev/null
+rm -rf /www/luci-static/tomfly 2>/dev/null
+rm -f  /www/cgi-bin/tomfly /usr/lib/lua/luci/rpc/tomfly.lua 2>/dev/null
 info "Program files removed"
 
 # ── Step 5: Runtime / temp state ──────────────────────────────────────────────
-rm -rf /var/run/kanno /var/run/kanno-mihomo.pid /var/run/kanno-singbox.pid 2>/dev/null
-rm -f  /tmp/kanno.lock /tmp/kanno-*.log /tmp/kanno-*.yaml /tmp/kanno-*.json 2>/dev/null
-rm -f  /tmp/kanno_usable.tmp /tmp/kanno_proxy_names.tmp 2>/dev/null
+rm -rf /var/run/tomfly /var/run/tomfly-mihomo.pid /var/run/tomfly-singbox.pid 2>/dev/null
+rm -f  /tmp/tomfly.lock /tmp/tomfly-*.log /tmp/tomfly-*.yaml /tmp/tomfly-*.json 2>/dev/null
+rm -f  /tmp/tomfly_usable.tmp /tmp/tomfly_proxy_names.tmp 2>/dev/null
 
 # Drop LuCI's cached menu/module index so the tab disappears immediately
 rm -f  /tmp/luci-indexcache /tmp/luci-indexcache.* 2>/dev/null
@@ -113,14 +113,14 @@ rm -rf /tmp/luci-modulecache 2>/dev/null
 # ── Step 6: User data (optional) ──────────────────────────────────────────────
 if [ "$PURGE_DATA" = "1" ]; then
     step "Purging user data..."
-    rm -f  /etc/config/kanno
-    rm -rf /etc/kanno
+    rm -f  /etc/config/tomfly
+    rm -rf /etc/tomfly
     rm -f  /usr/bin/mihomo /usr/bin/sing-box
-    rm -f  /var/log/kanno.log
+    rm -f  /var/log/tomfly.log
     info "Removed config, nodes, kernels, geodata and logs"
 else
     step "Keeping user data"
-    info "Kept: /etc/config/kanno (nodes), /etc/kanno (geodata/rules), kernels, logs"
+    info "Kept: /etc/config/tomfly (nodes), /etc/tomfly (geodata/rules), kernels, logs"
     info "Reinstalling later will reuse them. To wipe now: PURGE=1 sh uninstall.sh"
 fi
 
@@ -131,7 +131,7 @@ step "Reloading services..."
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 printf "\n${GREEN}╔══════════════════════════════════════╗${NC}\n"
-printf "${GREEN}║  KannoProxy uninstalled ✓            ║${NC}\n"
+printf "${GREEN}║  TomFly uninstalled ✓            ║${NC}\n"
 printf "${GREEN}╚══════════════════════════════════════╝${NC}\n\n"
 printf "  System packages (curl, nftables, ip-full…) were left installed.\n"
 printf "  If the LuCI tab still shows, hard-refresh your browser (Ctrl+Shift+R).\n\n"

@@ -1,0 +1,34 @@
+{
+	"luci-app-tomfly": {
+		"description": "Grant UCI and command access to TomFly",
+		"read": {
+			"uci": [ "tomfly" ],
+			"ubus": {
+				"file": [ "exec", "read", "stat", "list" ]
+			},
+			"cgi-io": [ "exec" ],
+			"file": {
+				"/usr/bin/tomfly": [ "exec" ],
+				"/usr/bin/mihomo": [ "exec" ],
+				"/usr/bin/sing-box": [ "exec" ],
+				"/usr/bin/curl": [ "exec" ],
+				"/etc/tomfly/*": [ "read" ],
+				"/var/log/tomfly.log": [ "read" ]
+			}
+		},
+		"write": {
+			"uci": [ "tomfly" ],
+			"cgi-io": [ "upload" ],
+			"ubus": {
+				"file": [ "exec", "write" ]
+			},
+			"file": {
+				"/sbin/uci": [ "exec" ],
+				"/usr/bin/tomfly": [ "exec" ],
+				"/bin/sh": [ "exec" ],
+				"/etc/tomfly/*": [ "read", "write" ],
+			"/var/log/tomfly.log": [ "write" ]
+			}
+		}
+	}
+}

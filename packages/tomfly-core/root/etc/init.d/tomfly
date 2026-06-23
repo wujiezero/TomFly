@@ -1,0 +1,22 @@
+#!/bin/sh /etc/rc.common
+# TomFly init script
+
+START=99
+STOP=10
+
+PROG=/usr/bin/tomfly
+
+start() {
+    local enabled
+    enabled=$(uci -q get tomfly.global.enabled 2>/dev/null)
+    [ "${enabled:-1}" = "0" ] && return 0
+    $PROG start
+}
+
+stop() {
+    $PROG stop
+}
+
+reload() {
+    $PROG reload
+}

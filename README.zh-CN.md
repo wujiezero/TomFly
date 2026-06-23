@@ -1,4 +1,4 @@
-# KannoProxy
+# TomFly
 
 一款简洁、原生 LuCI 的透明代理插件，适用于 ImmortalWrt 25.12.0+ / OpenWrt 22.03+，
 由 [mihomo](https://github.com/MetaCubeX/mihomo) 与 [sing-box](https://github.com/SagerNet/sing-box) 驱动。
@@ -7,7 +7,7 @@
 
 ## 功能特性
 
-- **原生 LuCI 界面** —— 纯 JS 视图，以顶部标签页形式呈现于 *服务 → KannoProxy* 下，自动适配路由器主题（浅色/深色）
+- **原生 LuCI 界面** —— 纯 JS 视图，以顶部标签页形式呈现于 *服务 → TomFly* 下，自动适配路由器主题（浅色/深色）
 - **多协议支持** —— VLESS+Reality、VMess、Trojan、Shadowsocks（含 2022）、Hysteria2、TUIC v5、AnyTLS
 - **一行导入** —— 直接粘贴任意 `vless://` / `vmess://` / `ss://` / `hy2://` / `tuic://` / `anytls://` … 链接
 - **内核感知** —— 通过能力矩阵自动跳过当前内核无法运行的节点（例如 mihomo + anytls-reality），且每次（重）启动前都会校验配置，避免一个坏节点拖垮整个服务
@@ -19,20 +19,20 @@
 ## 一键安装
 
 ```sh
-curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/kanno-proxy@main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/TomFly@main/install.sh | sh
 ```
 
 安装脚本会安装依赖（`nftables`、`kmod-nft-tproxy`、`kmod-tun`、`ip-full`、`rpcd-mod-file` …），
 部署脚本与 Web 界面，并可选择下载 mihomo 内核与 GeoData。
 
-安装完成后，打开：**`http://<路由器IP>/cgi-bin/luci/admin/services/kanno`**
+安装完成后，打开：**`http://<路由器IP>/cgi-bin/luci/admin/services/tomfly`**
 
-卸载：`curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/kanno-proxy@main/uninstall.sh | sh`
+卸载：`curl -fsSL https://cdn.jsdelivr.net/gh/wujiezero/TomFly@main/uninstall.sh | sh`
 （追加 `PURGE=1` 可同时删除已保存的节点、内核、geodata 与日志）。
 
 ## 内核与 GeoData 下载（手动安装 / 离线）
 
-`kanno update mihomo|singbox|geodata|all`（或 **内核** 标签页）会自动获取所有文件，
+`tomfly update mihomo|singbox|geodata|all`（或 **内核** 标签页）会自动获取所有文件，
 并为你挑选正确的架构。如果路由器无法访问 GitHub，可在另一台机器上下载文件，
 通过内核标签页的 **上传** 按钮导入，或用 `scp` 拷贝到下列路径。
 
@@ -79,7 +79,7 @@ install -m755 sing-box-*/sing-box /usr/bin/sing-box
 下载 `geoip.dat` 与 `geosite.dat`，然后：
 
 ```sh
-cp geoip.dat geosite.dat /etc/kanno/geodata/
+cp geoip.dat geosite.dat /etc/tomfly/geodata/
 ```
 
 在 GFW 之后，建议使用 jsDelivr 镜像，例如
@@ -105,10 +105,10 @@ cp geoip.dat geosite.dat /etc/kanno/geodata/
 两者都会透明代理路由器**本身**以及所有将其作为网关的局域网设备 —— 它们只是两种不同的
 机制，且同一时间只有一种在运行：
 
-- **TPROXY**（默认）：kanno 的 `nftables` 将流量重定向到内核的 tproxy 端口。久经考验。
-- **TUN**：内核创建 `tun` 设备，并通过 `auto-route` + `auto-redirect` 接管路由；kanno 的
+- **TPROXY**（默认）：tomfly 的 `nftables` 将流量重定向到内核的 tproxy 端口。久经考验。
+- **TUN**：内核创建 `tun` 设备，并通过 `auto-route` + `auto-redirect` 接管路由；tomfly 的
   nftables/策略路由步骤会被跳过。需要 `kmod-tun`。如果 TUN 接口无法启动
-  （例如缺少 `/dev/net/tun` 的虚拟化主机），kanno 会自动回退到 TPROXY。
+  （例如缺少 `/dev/net/tun` 的虚拟化主机），tomfly 会自动回退到 TPROXY。
 
 sing-box 始终使用 TUN。mihomo 的 TUN 开关位于 *概览 → 快速设置*。
 
@@ -120,26 +120,26 @@ sing-box 始终使用 TUN。mihomo 的 TUN 开关位于 *概览 → 快速设置
 ## 命令行用法
 
 ```sh
-kanno add "vless://uuid@host:port?security=reality&..."   # 添加节点
-kanno list                                                # 列出节点
-kanno test <node-id>                                      # 测试连通性
-kanno start | stop | restart | status                     # 服务控制
-kanno update mihomo | singbox | geodata | all             # 在线更新
+tomfly add "vless://uuid@host:port?security=reality&..."   # 添加节点
+tomfly list                                                # 列出节点
+tomfly test <node-id>                                      # 测试连通性
+tomfly start | stop | restart | status                     # 服务控制
+tomfly update mihomo | singbox | geodata | all             # 在线更新
 ```
 
 ## 软件包结构
 
 ```
 packages/
-├── kanno-core/        # 核心 shell 脚本 + init.d 服务
-├── luci-app-kanno/    # 原生 LuCI JS 视图 + rpcd ACL
-└── kanno-geodata/     # 默认规则文件
+├── tomfly-core/        # 核心 shell 脚本 + init.d 服务
+├── luci-app-tomfly/    # 原生 LuCI JS 视图 + rpcd ACL
+└── tomfly-geodata/     # 默认规则文件
 ```
 
 ## 架构
 
 ```
-原生 LuCI JS 视图 ──ubus(file.exec)/uci──> shell 命令行 (/usr/bin/kanno)
+原生 LuCI JS 视图 ──ubus(file.exec)/uci──> shell 命令行 (/usr/bin/tomfly)
                                                    │
                                        UCI 配置  ←─┘→ gen_mihomo / gen_singbox
                                                    │

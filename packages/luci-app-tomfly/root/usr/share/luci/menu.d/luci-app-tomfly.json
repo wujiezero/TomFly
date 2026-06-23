@@ -1,0 +1,60 @@
+{
+	"admin/services/tomfly": {
+		"title": "TomFly",
+		"order": 10,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-tomfly" ]
+		}
+	},
+	"admin/services/tomfly/overview": {
+		"title": "概览",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "tomfly/overview"
+		}
+	},
+	"admin/services/tomfly/nodes": {
+		"title": "节点",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "tomfly/nodes"
+		}
+	},
+	"admin/services/tomfly/rules": {
+		"title": "规则",
+		"order": 40,
+		"action": {
+			"type": "view",
+			"path": "tomfly/rules"
+		}
+	},
+	"admin/services/tomfly/dns": {
+		"title": "DNS",
+		"order": 50,
+		"action": {
+			"type": "view",
+			"path": "tomfly/dns"
+		}
+	},
+	"admin/services/tomfly/kernel": {
+		"title": "内核",
+		"order": 60,
+		"action": {
+			"type": "view",
+			"path": "tomfly/kernel"
+		}
+	},
+	"admin/services/tomfly/log": {
+		"title": "日志",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "tomfly/log"
+		}
+	}
+}
