@@ -268,11 +268,42 @@ _resolve_host() {
     echo "$ip"
 }
 
-# Node test always measures DIRECT reachability of the node's own endpoint and
-# never goes through the proxy. Under a TUN data-plane (sing-box, or mihomo with
-# TUN on) the kernel would otherwise capture the probe and it would always time
-# out, so we pin the target IP to the main routing table (real WAN egress) for
-# the duration of the probe and remove the rule immediately afterwards.
+_wan4_dev() {
+    ip -4 route show default 2>/dev/null \
+        | awk '{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit }}'
+}
+
+# Measure direct TCP reachability to host:port (milliseconds). Binds to the WAN
+# interface when possible so sing-box/mihomo TUN auto_redirect does not loop the
+# probe back into the proxy. Falls back to nc for a plain TCP handshake.
+_tcp_probe_ms() {
+    local ip="$1" port="$2" dev t ms start end
+
+    dev=$(_wan4_dev)
+    if [ -n "$dev" ]; then
+        t=$(curl -o /dev/null -s -w '%{time_connect}' \
+            --interface "$dev" --connect-timeout 5 --max-time 6 \
+            "http://${ip}:${port}/" 2>/dev/null)
+        ms=$(echo "$t" | awk '{printf "%d", $1 * 1000}')
+        [ -n "$ms" ] && [ "$ms" -gt 0 ] && { echo "${ms}ms"; return 0; }
+    fi
+
+    if command -v nc >/dev/null 2>&1; then
+        start=$(date +%s)
+        if nc -z -w5 "$ip" "$port" 2>/dev/null; then
+            end=$(date +%s)
+            ms=$(( (end - start) * 1000 ))
+            [ "$ms" -lt 1 ] && ms=1
+            echo "${ms}ms"
+            return 0
+        fi
+    fi
+
+    echo "timeout"
+}
+
+# Node test measures DIRECT TCP reachability of the node's own endpoint.
+# sing-box/mihomo configs also mark node server IPs as DIRECT (loop prevention).
 tomfly_test() {
     local id="$1"
     local sec="proxy_${id}"
@@ -282,23 +313,9 @@ tomfly_test() {
     [ -z "$port" ] && { echo "timeout"; return 0; }
 
     local ip; ip=$(_resolve_host "$server")
-    [ -z "$ip" ] && ip="$server"
+    [ -z "$ip" ] && { echo "timeout"; return 0; }
 
-    local fam=-4 host="$ip"; case "$ip" in *:*) fam=-6; host="[$ip]" ;; esac
-    local added=1
-    if echo "$ip" | grep -qE '^([0-9.]+|[0-9a-fA-F:]+)$'; then
-        ip "$fam" rule del to "$ip" lookup main priority 1 2>/dev/null
-        ip "$fam" rule add to "$ip" lookup main priority 1 2>/dev/null && added=0
-    fi
-
-    local t
-    t=$(curl -o /dev/null -s -w '%{time_connect}' \
-            --connect-timeout 5 --max-time 6 \
-            "http://${host}:${port}/" 2>/dev/null)
-
-    [ "$added" = 0 ] && ip "$fam" rule del to "$ip" lookup main priority 1 2>/dev/null
-
-    echo "$t" | awk '{ms=int($1*1000)} ms>0{print ms"ms"; next} {print "timeout"}'
+    _tcp_probe_ms "$ip" "$port"
 }
 
 tomfly_clear_log() {

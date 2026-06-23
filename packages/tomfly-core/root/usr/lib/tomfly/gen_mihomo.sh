@@ -338,6 +338,13 @@ YAML
             esac
         done
 
+    # Node server IPs must go DIRECT so the kernel can reach its own upstream
+    # (and node latency tests work) instead of looping back through the proxy.
+    list_node_server_ips | while read -r ip; do
+        [ -z "$ip" ] && continue
+        printf '  - IP-CIDR,%s/32,DIRECT,no-resolve\n' "$ip"
+    done
+
     local geosite_cn=$(_u "rules.geosite_cn"); geosite_cn="${geosite_cn:-DIRECT}"
     local geoip_cn=$(_u "rules.geoip_cn"); geoip_cn="${geoip_cn:-DIRECT}"
 

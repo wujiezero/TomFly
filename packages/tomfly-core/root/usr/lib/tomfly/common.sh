@@ -39,3 +39,31 @@ uci_get_list() { uci -q get "tomfly.$1" 2>/dev/null; }
 
 mkdir -p "$TOMFLY_RUN" "$TOMFLY_DIR/mihomo" "$TOMFLY_DIR/singbox" \
          "$GEODATA_DIR" "$RULES_DIR"
+
+# Print unique IPv4 addresses of configured proxy node servers (one per line).
+# Used for loop-prevention bypass rules in sing-box/mihomo configs and nftables.
+list_node_server_ips() {
+    local servers s ip
+    servers=$(uci show tomfly 2>/dev/null \
+        | sed -n "s/^tomfly\.proxy_[0-9a-f]*\.server='\([^']*\)'.*/\1/p" \
+        | sort -u)
+    for s in $servers; do
+        [ -z "$s" ] && continue
+        case "$s" in
+        *:*)
+            : # IPv6 — ipv4 bypass sets skip
+            ;;
+        *[a-zA-Z]*)
+            for ip in $(nslookup "$s" 223.5.5.5 2>/dev/null \
+                | awk '/^Address[: ]?/{print $NF}' \
+                | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' \
+                | grep -v '^127\.'); do
+                echo "$ip"
+            done
+            ;;
+        *)
+            echo "$s"
+            ;;
+        esac
+    done | sort -u
+}

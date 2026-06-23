@@ -160,6 +160,14 @@ _emit_force_rules() {
     done < "$file"
 }
 
+_emit_node_bypass_rules() {
+    local ip
+    list_node_server_ips | while read -r ip; do
+        [ -z "$ip" ] && continue
+        printf '      {"ip_cidr": [%s], "outbound": "DIRECT"},\n' "$(json_str "${ip}/32")"
+    done
+}
+
 # Prefer local .srs under GEODATA_DIR; fall back to remote CDN (router must reach it).
 _emit_singbox_rule_set() {
     local tag="$1" url="$2"
@@ -283,6 +291,7 @@ generate_singbox_config() {
     printf '      {"action": "sniff"},\n'
     printf '      {"protocol": "dns", "action": "hijack-dns"},\n'
     printf '      {"ip_is_private": true, "outbound": "DIRECT"},\n'
+    _emit_node_bypass_rules
     _emit_force_rules "PROXY" "${RULES_DIR}/force_proxy.txt"
     _emit_force_rules "DIRECT" "${RULES_DIR}/force_direct.txt"
     printf '      {"rule_set": "geoip-cn", "outbound": %s},\n' "$(json_str "$geoip_cn")"
