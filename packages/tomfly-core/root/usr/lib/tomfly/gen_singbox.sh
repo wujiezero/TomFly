@@ -168,6 +168,7 @@ generate_singbox_config() {
     local default_policy=$(_u "rules.default_policy"); default_policy="${default_policy:-PROXY}"
     local domestic=$(_sb_first_list "dns.domestic_dns" "223.5.5.5")
     local foreign=$(_sb_first_list "dns.foreign_dns" "8.8.8.8")
+    local dns_port=$(_u "dns.listen_port"); dns_port="${dns_port:-1053}"
     local usable="/tmp/tomfly_sb_usable.tmp"
     local names="/tmp/tomfly_sb_names.tmp"
     local sec reason
@@ -193,7 +194,7 @@ generate_singbox_config() {
     printf '  "log": {"level": %s, "timestamp": true},\n' "$(json_str "$loglevel")"
     printf '  "dns": {\n'
     printf '    "servers": [\n'
-    printf '      {"tag": "cn-dns", "type": "udp", "server": %s, "detour": "DIRECT"},\n' "$(json_str "$domestic")"
+    printf '      {"tag": "cn-dns", "type": "udp", "server": %s},\n' "$(json_str "$domestic")"
     printf '      {"tag": "remote-dns", "type": "tls", "server": %s, "detour": "PROXY"}' "$(json_str "$foreign")"
     if [ "$dns_mode" = "fake-ip" ]; then
         printf ',\n      {"tag": "fakeip", "type": "fakeip", "inet4_range": "198.18.0.1/16"}'
@@ -208,6 +209,7 @@ generate_singbox_config() {
     printf '    "final": "remote-dns"\n'
     printf '  },\n'
     printf '  "inbounds": [\n'
+    printf '    {"type": "direct", "tag": "dns-in", "listen": "127.0.0.1", "listen_port": %s, "network": "udp"},\n' "$dns_port"
     printf '    {"type": "tun", "tag": "tun-in", "interface_name": "TomFly", "address": ["172.19.0.1/30"], "auto_route": true, "auto_redirect": true, "strict_route": false, "stack": "system"}\n'
     printf '  ],\n'
     printf '  "outbounds": [\n'
@@ -268,7 +270,6 @@ generate_singbox_config() {
     printf '        "type": "remote",\n'
     printf '        "format": "binary",\n'
     printf '        "url": "https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs",\n'
-    printf '        "download_detour": "DIRECT",\n'
     printf '        "update_interval": "24h"\n'
     printf '      },\n'
     printf '      {\n'
@@ -276,7 +277,6 @@ generate_singbox_config() {
     printf '        "type": "remote",\n'
     printf '        "format": "binary",\n'
     printf '        "url": "https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs",\n'
-    printf '        "download_detour": "DIRECT",\n'
     printf '        "update_interval": "24h"\n'
     printf '      }\n'
     printf '    ],\n'
