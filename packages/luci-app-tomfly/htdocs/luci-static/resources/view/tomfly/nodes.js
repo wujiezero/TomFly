@@ -73,8 +73,7 @@ return view.extend({
 
 		banners.push(E('div', { 'class': 'tomfly-kernel-banner' }, [
 			E('strong', {}, _('Node test: ')),
-			_('measures direct TCP reachability to the node server (bypasses the proxy/TUN), ' +
-				'not proxied latency. Use Access Check on Overview to verify end-to-end connectivity.')
+			_('tries direct TCP to the node server first; if that is blocked, probes the node outbound via the running kernel (not via AUTO/PROXY).')
 		]));
 
 		return E('div', { 'class': 'tomfly' }, banners.concat([

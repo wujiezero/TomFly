@@ -200,6 +200,14 @@ tun:
   dns-hijack:
     - any:53
   strict-route: false
+YAML
+    if list_node_server_ips | grep -q .; then
+        echo "  route-exclude-address:"
+        list_node_server_ips | while read -r ip; do
+            [ -n "$ip" ] && printf '    - %s/32\n' "$ip"
+        done
+    fi
+    cat <<YAML
 
 dns:
   enable: true

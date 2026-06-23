@@ -273,15 +273,20 @@ _wan4_dev() {
         | awk '{for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i + 1); exit }}'
 }
 
-# Measure direct TCP reachability to host:port (milliseconds). Binds to the WAN
-# interface when possible so sing-box/mihomo TUN auto_redirect does not loop the
-# probe back into the proxy. Falls back to nc for a plain TCP handshake.
+# Measure direct TCP reachability to host:port (milliseconds). Node server IPs are
+# excluded from TUN routing in the generated config; probe with plain TCP first.
 _tcp_probe_ms() {
     local ip="$1" port="$2" dev t ms start end
 
+    t=$(curl -4 -o /dev/null -s -w '%{time_connect}' \
+        --connect-timeout 5 --max-time 6 \
+        "http://${ip}:${port}/" 2>/dev/null)
+    ms=$(echo "$t" | awk '{printf "%d", $1 * 1000}')
+    [ -n "$ms" ] && [ "$ms" -gt 0 ] && { echo "${ms}ms"; return 0; }
+
     dev=$(_wan4_dev)
     if [ -n "$dev" ]; then
-        t=$(curl -o /dev/null -s -w '%{time_connect}' \
+        t=$(curl -4 -o /dev/null -s -w '%{time_connect}' \
             --interface "$dev" --connect-timeout 5 --max-time 6 \
             "http://${ip}:${port}/" 2>/dev/null)
         ms=$(echo "$t" | awk '{printf "%d", $1 * 1000}')
@@ -290,7 +295,19 @@ _tcp_probe_ms() {
 
     if command -v nc >/dev/null 2>&1; then
         start=$(date +%s)
-        if nc -z -w5 "$ip" "$port" 2>/dev/null; then
+        if nc -z -w5 "$ip" "$port" 2>/dev/null \
+            || nc -z -w 5 "$ip" "$port" 2>/dev/null; then
+            end=$(date +%s)
+            ms=$(( (end - start) * 1000 ))
+            [ "$ms" -lt 1 ] && ms=1
+            echo "${ms}ms"
+            return 0
+        fi
+    fi
+
+    if command -v timeout >/dev/null 2>&1 && command -v nc >/dev/null 2>&1; then
+        start=$(date +%s)
+        if timeout 5 nc "$ip" "$port" </dev/null >/dev/null 2>&1; then
             end=$(date +%s)
             ms=$(( (end - start) * 1000 ))
             [ "$ms" -lt 1 ] && ms=1
@@ -302,20 +319,53 @@ _tcp_probe_ms() {
     echo "timeout"
 }
 
-# Node test measures DIRECT TCP reachability of the node's own endpoint.
-# sing-box/mihomo configs also mark node server IPs as DIRECT (loop prevention).
+_service_running() {
+    local pid
+    case "$(_kernel)" in
+    singbox) pid=$(cat "$SINGBOX_PID" 2>/dev/null) ;;
+    *)       pid=$(cat "$MIHOMO_PID" 2>/dev/null) ;;
+    esac
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# Probe a single outbound by tag via Clash API (dials that node only).
+_clash_outbound_delay_ms() {
+    local name="$1" enc resp ms
+    [ -z "$name" ] && return 1
+    enc=$(printf '%s' "$name" | sed 's/ /%20/g')
+    resp=$(curl -sf --max-time 10 \
+        "http://127.0.0.1:9090/proxies/${enc}/delay?url=http://www.gstatic.com/generate_204&timeout=5000" \
+        2>/dev/null) || return 1
+    ms=$(echo "$resp" | sed -n 's/.*"delay"[^0-9]*\([0-9]*\).*/\1/p' | head -n1)
+    [ -n "$ms" ] && echo "$ms"
+}
+
+# Node test: direct TCP to the node server first; if blocked (common under GFW on
+# bare proxy ports), fall back to the kernel probing that outbound by name.
 tomfly_test() {
     local id="$1"
     local sec="proxy_${id}"
-    local server=$(uci -q get "tomfly.${sec}.server")
+    local server name result ms
+    server=$(uci -q get "tomfly.${sec}.server")
     local port=$(uci -q get "tomfly.${sec}.port")
+    name=$(uci -q get "tomfly.${sec}.name")
     [ -z "$server" ] && { echo "Node not found"; exit 1; }
     [ -z "$port" ] && { echo "timeout"; return 0; }
 
     local ip; ip=$(_resolve_host "$server")
     [ -z "$ip" ] && { echo "timeout"; return 0; }
 
-    _tcp_probe_ms "$ip" "$port"
+    result=$(_tcp_probe_ms "$ip" "$port")
+    case "$result" in
+    *ms) echo "$result"; return 0 ;;
+    esac
+
+    if _service_running && [ -n "$name" ]; then
+        ms=$(_clash_outbound_delay_ms "$name")
+        [ -n "$ms" ] && { echo "${ms}ms"; return 0; }
+    fi
+
+    echo "timeout"
 }
 
 tomfly_clear_log() {
