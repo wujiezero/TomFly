@@ -111,7 +111,11 @@ return view.extend({
 					E('div', { 'class': 'tomfly-stat-label' }, _('Download') + ' · ' + fmtBytes(t.down || 0))
 				])
 			]),
-			E('div', { 'class': 'tomfly-card tomfly-stat' }, [
+			E('div', {
+				'class': 'tomfly-card tomfly-stat tomfly-stat-clickable',
+				'title': _('Click to view connection details'),
+				'click': ui.createHandlerFn(this, 'handleShowConnections')
+			}, [
 				E('div', { 'class': 'tomfly-stat-icon tomfly-ic-amber' }, svg(ICON.link)),
 				E('div', {}, [
 					E('div', { 'class': 'tomfly-stat-value' }, String(t.conns || 0)),
@@ -268,6 +272,43 @@ return view.extend({
 			E('div', { 'class': 'tomfly-grid-2' }, [accessCard, settingsCard]),
 			quick
 		]);
+	},
+
+	connectionsModalInner: function (conns) {
+		if (!conns.length) {
+			return E('p', { 'class': 'tomfly-muted' }, _('No active connections'));
+		}
+		return E('div', { 'class': 'tomfly-conn-list' }, conns.map(function (c) {
+			var meta = c.metadata || {};
+			var host = meta.host || meta.destinationIP || '—';
+			var chain = (c.chains || []).join(' → ');
+			var net = (meta.network || '').toUpperCase();
+			var type = meta.type || '';
+			var detail = [net, type, chain].filter(function (v) { return v; }).join(' · ');
+			return E('div', { 'class': 'tomfly-conn-item' }, [
+				E('div', { 'class': 'tomfly-conn-head' }, [
+					E('span', { 'class': 'tomfly-conn-host' }, host),
+					E('span', { 'class': 'tomfly-conn-traffic' },
+						'↑ ' + fmtBytes(c.upload || 0) + '  ↓ ' + fmtBytes(c.download || 0))
+				]),
+				detail ? E('div', { 'class': 'tomfly-conn-meta' }, detail) : '',
+				meta.sourceIP ? E('div', { 'class': 'tomfly-conn-src' },
+					meta.sourceIP + (meta.sourcePort ? ':' + meta.sourcePort : '')) : ''
+			]);
+		}));
+	},
+
+	handleShowConnections: function () {
+		var self = this;
+		return api.call('get_connections').then(function (r) {
+			var conns = (r && r.connections) || [];
+			ui.showModal(_('Active Connections') + ' (' + conns.length + ')', [
+				self.connectionsModalInner(conns),
+				E('div', { 'class': 'right', 'style': 'margin-top:10px' }, [
+					E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Close'))
+				])
+			]);
+		});
 	},
 
 	handleSwitchNode: function () {

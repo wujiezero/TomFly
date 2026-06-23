@@ -334,10 +334,21 @@ function getLogs(p) {
 }
 
 /* ── Traffic (mihomo connections API) ──────────── */
+function parseMemoryKb(raw) {
+	if (!raw) return 0;
+	try {
+		var m = JSON.parse(raw);
+		if (typeof m === 'number') return m;
+		if (m.inuse != null) return m.inuse;
+		if (m.memory != null) return m.memory;
+	} catch (e) {}
+	return 0;
+}
 function getTraffic() {
 	return Promise.all([
 		out('/usr/bin/curl', ['-sf', '--max-time', '2', 'http://127.0.0.1:9090/connections']),
-		out('/usr/bin/curl', ['-sf', '--max-time', '2', 'http://127.0.0.1:9090/proxies/PROXY'])
+		out('/usr/bin/curl', ['-sf', '--max-time', '2', 'http://127.0.0.1:9090/proxies/PROXY']),
+		out('/usr/bin/curl', ['-sf', '--max-time', '2', 'http://127.0.0.1:9090/memory'])
 	]).then(function (a) {
 		var traffic = { up: 0, down: 0, conns: 0, mem: 0, activeNode: '' };
 		try {
@@ -345,13 +356,27 @@ function getTraffic() {
 			traffic.up = o.uploadTotal || 0;
 			traffic.down = o.downloadTotal || 0;
 			traffic.conns = Array.isArray(o.connections) ? o.connections.length : 0;
-			traffic.mem = o.memory || 0;
 		} catch (e) {}
 		try {
 			var p = JSON.parse(a[1]);
 			traffic.activeNode = p.now || '';
 		} catch (e) {}
+		traffic.mem = parseMemoryKb(a[2]) * 1024;
 		return traffic;
+	});
+}
+function getConnections() {
+	return out('/usr/bin/curl', ['-sf', '--max-time', '3', 'http://127.0.0.1:9090/connections']).then(function (s) {
+		try {
+			var o = JSON.parse(s);
+			return {
+				connections: Array.isArray(o.connections) ? o.connections : [],
+				uploadTotal: o.uploadTotal || 0,
+				downloadTotal: o.downloadTotal || 0
+			};
+		} catch (e) {
+			return { connections: [], uploadTotal: 0, downloadTotal: 0 };
+		}
 	});
 }
 
@@ -498,7 +523,7 @@ var DISPATCH = {
 	get_rules: getRules, save_rules: saveRules, get_dns: getDns, save_dns: saveDns,
 	get_global: getGlobal, save_global: saveGlobal, get_kernels: getKernels,
 	update_kernel: updateKernel, get_logs: getLogs, clear_log: clearLog,
-	get_traffic: getTraffic, check_access: checkAccess, check_site: checkSite,
+	get_traffic: getTraffic, get_connections: getConnections, check_access: checkAccess, check_site: checkSite,
 	set_mode: setMode, install_upload: installUpload,
 	get_node: getNode, edit_node: editNode,
 	get_proxy_options: getProxyOptions, select_node: selectNode
