@@ -5,6 +5,11 @@
 . /usr/lib/tomfly/capabilities.sh
 
 _u() { uci -q get "tomfly.$1" 2>/dev/null; }
+_ud() {
+    local v
+    v=$(_u "$1")
+    [ -n "$v" ] && echo "$v" || echo "$2"
+}
 
 json_str() { printf '"%s"' "$(echo "$1" | sed 's/"/\\"/g')"; }
 
@@ -52,8 +57,8 @@ emit_singbox_proxy() {
     vmess)
         printf ',\n      "type": "vmess"'
         printf ',\n      "uuid": %s' "$(json_str "$(_u "${sec}.uuid")")"
-        printf ',\n      "alter_id": %s' "${_u "${sec}.alter_id":-0}"
-        printf ',\n      "security": %s' "$(json_str "${_u "${sec}.cipher":-auto}")"
+        printf ',\n      "alter_id": %s' "$(_ud "${sec}.alter_id" "0")"
+        printf ',\n      "security": %s' "$(json_str "$(_ud "${sec}.cipher" "auto")")"
         local tls=$(_u "${sec}.security")
         [ "$tls" = "tls" ] && \
             printf ',\n      "tls": {"enabled": true, "server_name": %s}' \
@@ -89,8 +94,8 @@ emit_singbox_proxy() {
         printf ',\n      "uuid": %s' "$(json_str "$(_u "${sec}.uuid")")"
         printf ',\n      "password": %s' "$(json_str "$(_u "${sec}.password")")"
         printf ',\n      "tls": {"enabled": true, "server_name": %s, "alpn": [%s]}' \
-            "$(json_str "$(_u "${sec}.sni")")" "$(json_str "${_u "${sec}.alpn":-h3}")"
-        printf ',\n      "congestion_control": %s' "$(json_str "${_u "${sec}.cc":-bbr}")"
+            "$(json_str "$(_u "${sec}.sni")")" "$(json_str "$(_ud "${sec}.alpn" "h3")")"
+        printf ',\n      "congestion_control": %s' "$(json_str "$(_ud "${sec}.cc" "bbr")")"
         ;;
     naive)
         printf ',\n      "type": "naive"'
@@ -105,7 +110,7 @@ emit_singbox_proxy() {
             printf ',\n      "tls": {'
             printf '\n        "enabled": true,'
             printf '\n        "server_name": %s,' "$(json_str "$(_u "${sec}.sni")")"
-            printf '\n        "utls": {"enabled": true, "fingerprint": %s},' "$(json_str "${_u "${sec}.fp":-chrome}")"
+            printf '\n        "utls": {"enabled": true, "fingerprint": %s},' "$(json_str "$(_ud "${sec}.fp" "chrome")")"
             printf '\n        "reality": {"enabled": true, "public_key": %s, "short_id": %s}' \
                 "$(json_str "$(_u "${sec}.pbk")")" "$(json_str "$(_u "${sec}.sid")")"
             printf '\n      }'

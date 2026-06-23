@@ -8,6 +8,12 @@ _u() { uci -q get "tomfly.$1" 2>/dev/null; }
 _ul() { uci -q get "tomfly.$1" 2>/dev/null; }
 
 # Emit a proxy block for one UCI proxy section
+_ud() {
+    local v
+    v=$(_u "$1")
+    [ -n "$v" ] && echo "$v" || echo "$2"
+}
+
 emit_proxy() {
     local sec="$1"
     local type=$(_u "${sec}.type")
@@ -65,8 +71,8 @@ emit_proxy() {
         ;;
     vmess)
         printf '    uuid: %s\n' "$(_u "${sec}.uuid")"
-        printf '    alterId: %s\n' "${_u "${sec}.alter_id":-0}"
-        printf '    cipher: %s\n' "${_u "${sec}.cipher":-auto}"
+        printf '    alterId: %s\n' "$(_ud "${sec}.alter_id" "0")"
+        printf '    cipher: %s\n' "$(_ud "${sec}.cipher" "auto")"
         local tls=$(_u "${sec}.security")
         [ "$tls" = "tls" ] && printf '    tls: true\n'
         local sni=$(_u "${sec}.sni")
@@ -127,7 +133,7 @@ emit_proxy() {
         [ -n "$sni" ] && printf '    sni: %s\n' "$sni"
         local alpn=$(_u "${sec}.alpn")
         [ -n "$alpn" ] && printf '    alpn:\n      - %s\n' "$alpn"
-        printf '    congestion-controller: %s\n' "${_u "${sec}.cc":-bbr}"
+        printf '    congestion-controller: %s\n' "$(_ud "${sec}.cc" "bbr")"
         ;;
     naive)
         printf '    username: %s\n' "$(_u "${sec}.username")"
