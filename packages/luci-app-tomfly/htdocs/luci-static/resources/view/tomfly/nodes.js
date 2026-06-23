@@ -69,16 +69,13 @@ return view.extend({
 	render: function (r) {
 		var nodes = (r && r.nodes) || [];
 		var kernel = (r && r.kernel) || 'mihomo';
-		var kp = kprof.profile(kernel);
 		var banners = [];
 
-		if (!kp.nodeTestAccurate) {
-			banners.push(E('div', { 'class': 'tomfly-kernel-banner warn' }, [
-				E('strong', {}, _('sing-box: ')),
-				_('Node latency test uses TCP connect fallback and may be inaccurate under TUN. ' +
-					'Use Access Check on Overview for real connectivity.')
-			]));
-		}
+		banners.push(E('div', { 'class': 'tomfly-kernel-banner' }, [
+			E('strong', {}, _('Node test: ')),
+			_('measures direct TCP reachability to the node server (bypasses the proxy/TUN), ' +
+				'not proxied latency. Use Access Check on Overview to verify end-to-end connectivity.')
+		]));
 
 		return E('div', { 'class': 'tomfly' }, banners.concat([
 			E('div', { 'class': 'tomfly-row', 'style': 'margin-bottom:14px' }, [

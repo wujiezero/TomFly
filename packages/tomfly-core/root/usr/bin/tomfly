@@ -252,32 +252,52 @@ tomfly_list() {
         sed 's/tomfly\.proxy_\(.*\)\.name=\(.*\)/\1  \2/'
 }
 
+# Resolve a host to a single IP. Pure IP literals are returned as-is; domains
+# are resolved best-effort via the system resolver. Prefers IPv4.
+_resolve_host() {
+    local host="$1" ip
+    case "$host" in
+    *:*) echo "$host"; return 0 ;;                       # IPv6 literal
+    esac
+    if echo "$host" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+        echo "$host"; return 0                            # IPv4 literal
+    fi
+    ip=$(nslookup "$host" 2>/dev/null \
+        | awk '/^Address[ 0-9]*:/ && $NF !~ /:/ {print $NF}' \
+        | grep -vE '^127\.|^0\.0\.0\.0$' | head -n1)
+    echo "$ip"
+}
+
+# Node test always measures DIRECT reachability of the node's own endpoint and
+# never goes through the proxy. Under a TUN data-plane (sing-box, or mihomo with
+# TUN on) the kernel would otherwise capture the probe and it would always time
+# out, so we pin the target IP to the main routing table (real WAN egress) for
+# the duration of the probe and remove the rule immediately afterwards.
 tomfly_test() {
     local id="$1"
     local sec="proxy_${id}"
-    local name=$(uci -q get "tomfly.${sec}.name")
     local server=$(uci -q get "tomfly.${sec}.server")
     local port=$(uci -q get "tomfly.${sec}.port")
     [ -z "$server" ] && { echo "Node not found"; exit 1; }
+    [ -z "$port" ] && { echo "timeout"; return 0; }
 
-    # Prefer the running kernel's own latency test: the kernel dials the node
-    # itself, so it works in BOTH tproxy and TUN data-planes and measures real
-    # proxy latency. A raw connect from the router would be captured by the TUN
-    # (in TUN mode) and always time out.
-    if [ "$(_kernel)" = "mihomo" ] && [ -n "$name" ]; then
-        local enc resp
-        enc=$(echo "$name" | sed 's/ /%20/g')
-        resp=$(curl -s --max-time 8 "http://127.0.0.1:9090/proxies/${enc}/delay?url=http://www.gstatic.com/generate_204&timeout=5000" 2>/dev/null)
-        case "$resp" in
-        *'"delay"'*) echo "$resp" | sed 's/.*"delay"[^0-9]*\([0-9]*\).*/\1ms/'; return 0 ;;
-        esac
-        # kernel stopped, or node not in config (incompatible) → fall through
+    local ip; ip=$(_resolve_host "$server")
+    [ -z "$ip" ] && ip="$server"
+
+    local fam=-4 host="$ip"; case "$ip" in *:*) fam=-6; host="[$ip]" ;; esac
+    local added=1
+    if echo "$ip" | grep -qE '^([0-9.]+|[0-9a-fA-F:]+)$'; then
+        ip "$fam" rule del to "$ip" lookup main priority 1 2>/dev/null
+        ip "$fam" rule add to "$ip" lookup main priority 1 2>/dev/null && added=0
     fi
 
-    # Fallback: raw TCP-connect timing (works when the kernel is stopped, and
-    # in tproxy mode where the node IP is bypassed).
     local t
-    t=$(curl -o /dev/null -s -w '%{time_connect}' --connect-timeout 5 --max-time 6 "http://${server}:${port}" 2>/dev/null)
+    t=$(curl -o /dev/null -s -w '%{time_connect}' \
+            --connect-timeout 5 --max-time 6 \
+            "http://${host}:${port}/" 2>/dev/null)
+
+    [ "$added" = 0 ] && ip "$fam" rule del to "$ip" lookup main priority 1 2>/dev/null
+
     echo "$t" | awk '{ms=int($1*1000)} ms>0{print ms"ms"; next} {print "timeout"}'
 }
 
