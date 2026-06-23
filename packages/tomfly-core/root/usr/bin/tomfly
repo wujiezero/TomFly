@@ -300,8 +300,9 @@ case "${1:-help}" in
         mihomo)  update_mihomo ;;
         singbox) update_singbox ;;
         geodata) update_geodata ;;
-        all)     update_mihomo; update_singbox; update_geodata ;;
-        *)       echo "Usage: tomfly update {mihomo|singbox|geodata|all}" ;;
+        core)    update_core ;;
+        all)     update_core; update_mihomo; update_singbox; update_geodata ;;
+        *)       echo "Usage: tomfly update {core|mihomo|singbox|geodata|all}" ;;
         esac
         ;;
     *)
@@ -317,6 +318,7 @@ Commands:
   del <id>           Remove a proxy node
   list               List all proxy nodes
   test <id>          Test node connectivity
+  update core         Update TomFly scripts (gen_*, tomfly)
   update mihomo      Update mihomo kernel
   update singbox     Update sing-box kernel
   update geodata     Update GeoIP/GeoSite data

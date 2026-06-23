@@ -292,3 +292,47 @@ check_kernel_version() {
         ;;
     esac
 }
+
+# Update TomFly shell scripts from GitHub (jsDelivr may be unreachable on the router).
+TOMFLY_REPO="wujiezero/TomFly"
+TOMFLY_REF="${TOMFLY_REF:-main}"
+
+_tf_fetch_script() {
+    local relpath="$1" dest="$2" mode="${3:-755}" base url
+    local tmp="${dest}.tomfly_tmp"
+    for base in \
+        "https://raw.githubusercontent.com/${TOMFLY_REPO}/${TOMFLY_REF}" \
+        "https://cdn.jsdelivr.net/gh/${TOMFLY_REPO}@${TOMFLY_REF}" \
+        "https://ghfast.top/https://raw.githubusercontent.com/${TOMFLY_REPO}/${TOMFLY_REF}"
+    do
+        url="${base}/${relpath}"
+        progress "Trying ${url}"
+        if curl -fsSL --connect-timeout 15 --max-time 90 -o "$tmp" "$url" 2>/dev/null; then
+            mv "$tmp" "$dest"
+            chmod "$mode" "$dest"
+            log_info "updated ${dest}"
+            return 0
+        fi
+    done
+    rm -f "$tmp"
+    log_error "download failed: ${relpath}"
+    return 1
+}
+
+update_core() {
+    local ok=0 fail=0
+    progress "Updating TomFly core scripts (ref: ${TOMFLY_REF})..."
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/gen_singbox.sh" "/usr/lib/tomfly/gen_singbox.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/gen_mihomo.sh" "/usr/lib/tomfly/gen_mihomo.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/common.sh" "/usr/lib/tomfly/common.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/capabilities.sh" "/usr/lib/tomfly/capabilities.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/nftables.sh" "/usr/lib/tomfly/nftables.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/lib/tomfly/dns.sh" "/usr/lib/tomfly/dns.sh" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    _tf_fetch_script "packages/tomfly-core/root/usr/bin/tomfly" "/usr/bin/tomfly" 755 && ok=$((ok + 1)) || fail=$((fail + 1))
+    if [ "$fail" -gt 0 ]; then
+        log_error "core update incomplete (${ok} ok, ${fail} failed)"
+        return 1
+    fi
+    log_info "core scripts updated (${ok} files)"
+    return 0
+}
