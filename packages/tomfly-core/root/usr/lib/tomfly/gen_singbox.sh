@@ -172,7 +172,7 @@ _emit_tun_inbound() {
     local first=1 ip
     printf '    {"type": "tun", "tag": "tun-in", "interface_name": "TomFly", "address": ["172.19.0.1/30"], "auto_route": true, "auto_redirect": true, "strict_route": false, "stack": "system"'
     if list_node_server_ips | grep -q .; then
-        printf ', "route": {"exclude_address": ['
+        printf ', "route_exclude_address": ['
         first=1
         for ip in $(list_node_server_ips); do
             [ -z "$ip" ] && continue
@@ -180,7 +180,7 @@ _emit_tun_inbound() {
             printf '%s' "$(json_str "${ip}/32")"
             first=0
         done
-        printf ']}'
+        printf ']'
     fi
     printf '}\n'
 }
