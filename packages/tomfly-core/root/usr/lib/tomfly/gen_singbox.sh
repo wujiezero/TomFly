@@ -126,13 +126,17 @@ emit_singbox_proxy() {
 }
 
 _emit_json_name_array() {
-    local file="$1" pn first=1
+    local file="$1" prefix_comma="${2:-0}" pn first=1
     [ -f "$file" ] || return 0
     while read -r pn; do
         [ -n "$pn" ] || continue
-        [ "$first" = "0" ] && printf ','
-        printf '\n        %s' "$(json_str "$pn")"
-        first=0
+        if [ "$prefix_comma" = "1" ]; then
+            printf ',\n        %s' "$(json_str "$pn")"
+        else
+            [ "$first" = "0" ] && printf ','
+            printf '\n        %s' "$(json_str "$pn")"
+            first=0
+        fi
     done < "$file"
 }
 
@@ -231,9 +235,8 @@ generate_singbox_config() {
         printf '    {\n'
         printf '      "type": "selector",\n'
         printf '      "tag": "PROXY",\n'
-        printf '      "outbounds": [\n'
-        printf '        "AUTO"'
-        _emit_json_name_array "$names"
+        printf '      "outbounds": [\n        "AUTO"'
+        _emit_json_name_array "$names" 1
         printf ',\n        "DIRECT"\n'
         printf '      ],\n'
         printf '      "default": "AUTO"\n'
