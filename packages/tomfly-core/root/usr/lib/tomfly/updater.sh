@@ -89,14 +89,15 @@ get_download_url() {
 # before the canonical github.com URL. Release binaries (kernels) have no CDN
 # fallback of their own, and github.com is frequently blocked/throttled on CN
 # networks, so api.github.com can resolve the asset URL while the download then
-# times out. ghfast.top is fastest in testing; gh-proxy.com is a backup; direct
-# github.com is last so it still wins where reachable (e.g. abroad).
+# times out. Both proxies are tried before the direct github.com URL (which is
+# kept last so it still wins where reachable, e.g. abroad); ghfast.top and
+# gh-proxy.com trade places in speed run to run, so we try both.
 _curl_github_to() {
     local url="$1" out="$2" m
     for m in \
         "https://ghfast.top/${url}" \
-        "${url}" \
-        "https://gh-proxy.com/${url}"
+        "https://gh-proxy.com/${url}" \
+        "${url}"
     do
         if curl -fL --connect-timeout 10 --speed-limit 5120 --speed-time 20 \
             --max-time 300 --progress-bar -o "$out" "$m" 2>&1; then
@@ -337,14 +338,15 @@ update_geodata_mihomo() {
     for f in geoip.dat geosite.dat; do
         # jsDelivr first: fastest + reliable on CN networks. The github.com
         # release asset is canonical but often blocked/throttled (it can even
-        # connect then stall mid-transfer), so it is the fallback.
+        # connect then stall mid-transfer), so it is the fallback — and it goes
+        # through the CN proxy mirrors too (mirror=1), not a bare direct hit.
         if download_and_verify \
             "https://cdn.jsdelivr.net/gh/${GEODATA_REPO}@release/${f}" \
             "${GEODATA_DIR}/${f}"; then
             ok=$((ok + 1))
         elif download_and_verify \
             "https://github.com/${GEODATA_REPO}/releases/latest/download/${f}" \
-            "${GEODATA_DIR}/${f}"; then
+            "${GEODATA_DIR}/${f}" 1; then
             ok=$((ok + 1))
         else
             log_warn "Failed to download ${f}"
@@ -364,9 +366,11 @@ update_geodata_singbox() {
     local ok=0 item fname urls url got
 
     progress "Downloading sing-box rule-sets (geoip-cn.srs + geosite-cn.srs)..."
+    # Each row: <file>|<url1>|<url2>|... tried left to right. jsDelivr first,
+    # then raw.githubusercontent via the ghfast.top proxy, then raw direct.
     for item in \
-        "geoip-cn.srs|https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs|https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs" \
-        "geosite-cn.srs|https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs|https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs"
+        "geoip-cn.srs|https://cdn.jsdelivr.net/gh/SagerNet/sing-geoip@rule-set/geoip-cn.srs|https://ghfast.top/https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs|https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs" \
+        "geosite-cn.srs|https://cdn.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-cn.srs|https://ghfast.top/https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs|https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs"
     do
         fname="${item%%|*}"
         urls="${item#*|}"
