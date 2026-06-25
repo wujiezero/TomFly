@@ -9,7 +9,7 @@ SINGBOX_REPO="SagerNet/sing-box"
 GEODATA_REPO="Loyalsoldier/v2ray-rules-dat"
 
 # Print progress to both terminal and log
-progress() { printf '\033[0;36m[→]\033[0m %s\n' "$*"; echo "[STEP]  $*" >> "$TOMFLY_LOG"; }
+progress() { printf '\033[0;36m[→]\033[0m %s\n' "$*"; tomfly_log_line "[STEP]  $*"; }
 
 # Map the running target to the release asset arch token shared by BOTH
 # mihomo (mihomo-<arch>-vX.gz) and sing-box (sing-box-X-<arch>.tar.gz).

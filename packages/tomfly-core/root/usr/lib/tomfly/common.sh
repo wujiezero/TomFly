@@ -14,18 +14,22 @@ MIHOMO_PID="/var/run/tomfly-mihomo.pid"
 SINGBOX_PID="/var/run/tomfly-singbox.pid"
 MIHOMO_API="http://127.0.0.1:9090"
 
+tomfly_log_line() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$TOMFLY_LOG"
+}
+
 log_info()  {
-    echo "[INFO]  $*" >> "$TOMFLY_LOG"
+    tomfly_log_line "[INFO]  $*"
     logger -t tomfly -p daemon.info  "$*" 2>/dev/null
     printf '\033[0;32m[✓]\033[0m %s\n' "$*"
 }
 log_warn()  {
-    echo "[WARN]  $*" >> "$TOMFLY_LOG"
+    tomfly_log_line "[WARN]  $*"
     logger -t tomfly -p daemon.warn  "$*" 2>/dev/null
     printf '\033[1;33m[!]\033[0m %s\n' "$*" >&2
 }
 log_error() {
-    echo "[ERROR] $*" >> "$TOMFLY_LOG"
+    tomfly_log_line "[ERROR] $*"
     logger -t tomfly -p daemon.err   "$*" 2>/dev/null
     printf '\033[0;31m[✗]\033[0m %s\n' "$*" >&2
 }
