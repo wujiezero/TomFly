@@ -8,7 +8,7 @@
 # Supports: ImmortalWrt 25.12.0+ (apk) and OpenWrt 22.03+ (opkg)
 
 REPO="https://cdn.jsdelivr.net/gh/wujiezero/TomFly@main"
-TOMFLY_VER="0.1.0"
+TOMFLY_VER="0.1.1"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 info()  { printf "${GREEN}[✓]${NC} %s\n" "$*"; }

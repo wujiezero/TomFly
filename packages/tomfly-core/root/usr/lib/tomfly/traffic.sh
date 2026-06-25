@@ -27,7 +27,7 @@ _traffic_running() {
 }
 
 tomfly_traffic() {
-    local month db stored_month resp tmp cur deltas newseen
+    local month db stored_month resp tmp cur deltas newseen nodes_file
     local sec name prev delta total first stats running
 
     month=$(date +%Y-%m)
@@ -44,8 +44,15 @@ tomfly_traffic() {
     cur="/tmp/tomfly-traffic-cur-$$"
     deltas="/tmp/tomfly-traffic-delta-$$"
     newseen="${CONN_SEEN}.$$"
+    nodes_file="/tmp/tomfly-traffic-nodes-$$"
     : > "$cur"
     : > "$deltas"
+    : > "$nodes_file"
+
+    for sec in $(uci show tomfly 2>/dev/null | sed -n "s/^tomfly\.\(proxy_[0-9a-f]*\)\.type=.*/\1/p"); do
+        name=$(uci -q get "tomfly.${sec}.name" 2>/dev/null)
+        [ -n "$name" ] && printf '%s\n' "$name" >> "$nodes_file"
+    done
 
     # Stats switch: '0' disables live accounting and simply re-emits the stored
     # monthly data (lightweight). Unset or '1' (default) = normal accounting.
@@ -59,8 +66,13 @@ tomfly_traffic() {
             # '}' separates a connection's id (inside the metadata sub-object's
             # record) from its byte counters/chains (the following record), so
             # carry the most recent id forward to the byte-bearing record.
-            printf '%s' "$resp" | awk '
-                BEGIN { RS="}"; pid="" }
+            printf '%s' "$resp" | awk -v NODES="$nodes_file" '
+                BEGIN {
+                    while ((getline n < NODES) > 0)
+                        if (n != "") known[n] = 1
+                    close(NODES)
+                    RS="}"; pid=""
+                }
                 {
                     if (match($0, /"id":"[^"]*"/))
                         pid = substr($0, RSTART + 6, RLENGTH - 7)
@@ -74,7 +86,11 @@ tomfly_traffic() {
                     if (match($0, /"chains":\[[^]]*\]/)) {
                         arr = substr($0, RSTART + 10, RLENGTH - 11)
                         n = split(arr, parts, "\"")
-                        for (i = n; i >= 1; i--) {
+                        for (i = 1; i <= n; i++) {
+                            g = parts[i]; gsub(/^[ ,]+|[ ,]+$/, "", g)
+                            if (g in known) { node = g; break }
+                        }
+                        if (node == "") for (i = n; i >= 1; i--) {
                             g = parts[i]; gsub(/^[ ,]+|[ ,]+$/, "", g)
                             if (g != "") { node = g; break }
                         }
@@ -146,5 +162,5 @@ tomfly_traffic() {
     else
         printf '{"month":"%s","nodes":{},"_running":%s}\n' "$month" "$running"
     fi
-    rm -f "$tmp" "$cur" "$deltas" "$newseen"
+    rm -f "$tmp" "$cur" "$deltas" "$newseen" "$nodes_file"
 }

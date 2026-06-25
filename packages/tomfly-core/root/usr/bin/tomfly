@@ -571,7 +571,7 @@ case "${1:-help}" in
         ;;
     *)
         cat <<-USAGE
-TomFly v0.1.0
+TomFly v0.1.1
 Commands:
   start              Start the proxy service
   stop               Stop the proxy service

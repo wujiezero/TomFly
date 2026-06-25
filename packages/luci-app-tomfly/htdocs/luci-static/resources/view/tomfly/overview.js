@@ -455,14 +455,13 @@ return view.extend({
 				keys.forEach(function (name) { if ((nodes[name] || 0) > maxBytes) maxBytes = nodes[name] || 0; });
 				var rows = keys.map(function (name) {
 					var bytes = nodes[name] || 0;
-					var gb = bytes / 1073741824;
 					var isZero = bytes <= 0;
 					var width = isZero ? 0 : Math.max(4, maxBytes > 0 ? (bytes / maxBytes * 100) : 0);
 					return E('div', { 'class': 'tomfly-traffic-row' }, [
 						E('span', { 'class': 'tomfly-traffic-name' }, name),
 						E('span', { 'class': 'tomfly-traffic-bar-bg' },
 							E('span', { 'class': 'tomfly-traffic-bar' + (isZero ? ' zero' : ''), 'style': 'width:' + width + '%' })),
-						E('span', { 'class': 'tomfly-traffic-gb' + (isZero ? ' zero' : '') }, gb.toFixed(2) + ' GB')
+						E('span', { 'class': 'tomfly-traffic-gb' + (isZero ? ' zero' : '') }, fmtBytes(bytes))
 					]);
 				});
 				var month = r.month || '';
