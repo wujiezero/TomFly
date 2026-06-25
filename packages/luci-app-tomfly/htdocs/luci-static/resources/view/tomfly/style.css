@@ -498,6 +498,7 @@ body.tomfly-page #maincontent .cbi-tabmenu { display: none !important; }
 .tomfly-avatar-red { background: rgba(239, 68, 68, .12); color: #ef4444; }
 .tomfly-core-name { font-size: 15px; font-weight: 700; }
 .tomfly-core-desc { font-size: 12.5px; color: var(--tf-text3); margin-top: 2px; }
+.tomfly-core-version { font-size: 12px; color: var(--tf-text2); margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .tomfly-section-head { display: flex; align-items: baseline; gap: 11px; margin: 24px 2px 14px; flex-wrap: wrap; }
 .tomfly-section-hint { font-size: 12.5px; color: var(--tf-text3); }
 .tomfly-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }

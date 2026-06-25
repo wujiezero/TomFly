@@ -98,7 +98,7 @@ return view.extend({
 
 	render: function (data) {
 		var g = data[0] || {}, k = data[1] || {};
-		var mihomo = k.mihomo || {}, singbox = k.singbox || {}, geo = k.geodata || {};
+		var mihomo = k.mihomo || {}, singbox = k.singbox || {}, core = k.core || {}, geo = k.geodata || {};
 		var geoDatOk = (geo.geoip === 'yes' && geo.geosite === 'yes');
 		var srsModeVal = srsMode(geo);
 		var geoSrsOk = (srsModeVal === 'local' || srsModeVal === 'remote' || srsModeVal === 'partial');
@@ -148,7 +148,10 @@ return view.extend({
 					E('div', { 'class': 'tomfly-avatar tomfly-avatar-accent' }, 'T'),
 					E('div', {}, [
 						E('div', { 'class': 'tomfly-core-name' }, 'TomFly'),
-						E('div', { 'class': 'tomfly-core-desc' }, _('Core scripts, LuCI UI & updater'))
+						E('div', { 'class': 'tomfly-core-desc' }, _('Core scripts, LuCI UI & updater')),
+						E('div', { 'class': 'tomfly-core-version' }, core.version
+							? (_('Version: ') + core.version)
+							: _('Version: not recorded yet'))
 					])
 				]),
 				E('button', { 'class': 'tomfly-btn tomfly-btn-primary', 'click': ui.createHandlerFn(this, 'handleUpdate', 'core') }, _('Update online'))

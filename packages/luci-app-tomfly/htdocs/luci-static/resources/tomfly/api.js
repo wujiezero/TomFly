@@ -316,6 +316,30 @@ function getKernels() {
 		kernelVer('/usr/bin/mihomo', '-v'),
 		kernelVer('/usr/bin/sing-box', 'version'),
 		out('/bin/sh', ['-c',
+			'if [ -f /etc/tomfly/core.version ]; then ' +
+			'  cat /etc/tomfly/core.version; ' +
+			'else ' +
+			'  echo ref=installed; ' +
+			'  mt=$(stat -c "%y" /usr/lib/tomfly/updater.sh 2>/dev/null | cut -d. -f1); ' +
+			'  [ -n "$mt" ] || mt=$(ls --full-time /usr/lib/tomfly/updater.sh 2>/dev/null | awk "{print \\$6 \\" \\" \\$7}"); ' +
+			'  [ -n "$mt" ] || mt=$(date "+%Y-%m-%d %H:%M:%S"); ' +
+			'  echo updated_at="$mt"; ' +
+			'  echo files=unknown; ' +
+			'fi'
+		]).then(function (t) {
+			var core = { ref: '', updated_at: '', files: '' };
+			(t || '').split('\n').forEach(function (line) {
+				var i = line.indexOf('=');
+				if (i < 0) return;
+				var k = line.slice(0, i), v = line.slice(i + 1).trim();
+				if (core.hasOwnProperty(k)) core[k] = v;
+			});
+			core.version = core.ref && core.updated_at
+				? core.ref + ' · ' + core.updated_at
+				: '';
+			return core;
+		}),
+		out('/bin/sh', ['-c',
 			'cat /etc/tomfly/geodata/version 2>/dev/null;' +
 			'echo "|";test -f /etc/tomfly/geodata/geoip.dat && echo yes || echo no;' +
 			'echo "|";test -f /etc/tomfly/geodata/geosite.dat && echo yes || echo no;' +
@@ -331,7 +355,7 @@ function getKernels() {
 				srs_geosite: (a[4] || 'no').trim()
 			};
 		})
-	]).then(function (a) { return { mihomo: a[0], singbox: a[1], geodata: a[2] }; });
+	]).then(function (a) { return { mihomo: a[0], singbox: a[1], core: a[2], geodata: a[3] }; });
 }
 function updateKernel(p) {
 	var t = p.target;

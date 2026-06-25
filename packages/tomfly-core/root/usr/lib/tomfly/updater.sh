@@ -431,6 +431,37 @@ TOMFLY_REPO="wujiezero/TomFly"
 # Override to pin a commit: TOMFLY_REF=<hash> tomfly update core
 TOMFLY_REF="${TOMFLY_REF:-main}"
 
+_tomfly_write_core_version() {
+    local files="${1:-0}"
+
+    mkdir -p "$TOMFLY_DIR"
+    {
+        echo "ref=${TOMFLY_REF}"
+        echo "updated_at=$(date '+%Y-%m-%d %H:%M:%S')"
+        echo "files=${files}"
+    } > "${TOMFLY_DIR}/core.version"
+}
+
+_tomfly_bump_luci_resource_version() {
+    local db bumped=0
+
+    for db in \
+        "${TOMFLY_LUCI_APK_DB:-/lib/apk/db/installed}" \
+        "${TOMFLY_LUCI_OPKG_STATUS:-/usr/lib/opkg/status}"
+    do
+        [ -f "$db" ] || continue
+        if touch "$db" 2>/dev/null; then
+            bumped=1
+        fi
+    done
+
+    if [ "$bumped" -eq 1 ]; then
+        log_info "LuCI resource version bumped"
+    else
+        log_warn "LuCI resource version not bumped; package database not found"
+    fi
+}
+
 _tf_fetch_script() {
     local relpath="$1" dest="$2" mode="${3:-755}" base url
     local tmp="${dest}.tomfly_tmp"
@@ -487,6 +518,8 @@ update_core() {
         log_error "core update incomplete (${ok} ok, ${fail} failed)"
         return 1
     fi
+    _tomfly_write_core_version "$ok"
+    _tomfly_bump_luci_resource_version
     log_info "TomFly core updated (${ok} files)"
     return 0
 }
